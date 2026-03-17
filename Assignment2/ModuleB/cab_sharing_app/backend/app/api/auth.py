@@ -84,9 +84,9 @@ async def google_auth(request: AuthRequest, db: Session = Depends(database.get_d
     user = db.query(models.Member).filter(models.Member.GoogleSub == google_sub).first()
 
     if not user:
-        return {"message":"Failure","user": user_info}
+        return {"isNewUser":True, "email": user_email, "name":user_info.get("name"), "picture": user_info.get("picture")}
 
     # 5. Create Local JWT
     access_token = create_jwt(user.MemberID)
 
-    return {"message": "Success", "token": access_token, "user": user_info}
+    return {"isNewUser":False, "token": access_token, "user": user_info}
