@@ -139,24 +139,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   //   4a. Email found in Members → returns { isNewUser: false, ...full User row }
   //   4b. Email not found        → returns { isNewUser: true, email, name, picture }
   //       → caller (Login.tsx) redirects to /signup with that data as router state
-  const loginWithGoogle = async (accessToken: string): Promise<NewUserPayload | { isNewUser: false }> => {
-    const res = await fetch('/auth/login', {
+  // api.ts (or wherever you define this)
+  const loginWithGoogle = async (code: string) => {
+    const res = await fetch('http://localhost:8000/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: accessToken }),
+      body: JSON.stringify({ code: code }), // Send 'code' to match backend BaseModel
     });
 
-    if (!res.ok) throw new Error('Google auth failed');
-
-    const data = await res.json();
-
-    if (!data.isNewUser) {
-      // Strip the flag before storing as User
-      const { isNewUser, ...user } = data;
-      setCurrentUser(user as User);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Google auth failed');
     }
 
-    return data;
+    return await res.json();
   };
 
   // ── Register new user (called after Signup form) ───────────────────────────

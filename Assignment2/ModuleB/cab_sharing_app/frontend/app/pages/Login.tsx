@@ -11,6 +11,7 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleGoogle = useGoogleLogin({
+    flow: 'auth-code',
     onSuccess: async (tokenResponse) => {
       setLoading(true);
       setError('');
@@ -20,7 +21,8 @@ export const Login: React.FC = () => {
         // Returns either:
         //   { isNewUser: false, ...User fields }   → already registered
         //   { isNewUser: true, email, name, picture } → needs signup
-        const result = await loginWithGoogle(tokenResponse.access_token);
+        const result = await loginWithGoogle(tokenResponse.code);
+        console.log(result);
 
         if (result.isNewUser) {
           // Pass prefilled data to signup via location state

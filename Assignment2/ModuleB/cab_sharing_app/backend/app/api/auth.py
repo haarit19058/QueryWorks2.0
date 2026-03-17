@@ -84,18 +84,7 @@ async def google_auth(request: AuthRequest, db: Session = Depends(database.get_d
     user = db.query(models.Member).filter(models.Member.GoogleSub == google_sub).first()
 
     if not user:
-        # Note: You may need to handle ContactNumber gracefully if it's required in your DB
-        user = models.Member(
-            FullName=name,
-            Email=user_email,
-            Programme="NA",
-            BatchYear=datetime.now().year,
-            ContactNumber=f"NA-{google_sub[:6]}", # Temporary fallback to satisfy unique constraint
-            GoogleSub=google_sub
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        return {"message":"Failure","user": user_info}
 
     # 5. Create Local JWT
     access_token = create_jwt(user.MemberID)
