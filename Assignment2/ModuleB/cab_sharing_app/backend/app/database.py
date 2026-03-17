@@ -2,7 +2,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-
 SQLALCHEMY_DATABASE_URL = "mysql+mysqlconnector://root:RK056@172.27.236.113:3306/RideShare"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -14,4 +13,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()

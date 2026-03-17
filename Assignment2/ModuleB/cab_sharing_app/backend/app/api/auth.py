@@ -9,12 +9,12 @@ from dotenv import load_dotenv
 
 import models
 import database
+import schemas
 
 load_dotenv()
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Use environment variables securely
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "fallback-secret-key") 
 ALGORITHM = "HS256"
 CLIENT_ID = os.environ.get("CLIENT_ID")
@@ -24,7 +24,7 @@ REDIRECT_URI = os.environ.get("REDIRECT_URI", "postmessage")
 class AuthRequest(BaseModel):
     code: str
 
-def create_jwt(member_id: int):
+def create_jwt(member_id: str):
     payload = {
         "member_id": member_id,
         "exp": datetime.utcnow() + timedelta(days=7)
@@ -32,21 +32,19 @@ def create_jwt(member_id: int):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_current_user(authorization: str = Header(None)):
-    """Dependency to check the token on protected routes"""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
-    
     token = authorization.split(" ")[1]
-    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload.get("member_id")
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token has expired or is invalid. Please log in again.")
+        raise HTTPException(status_code=401, detail="Token has expired or is invalid.")
+
+
 
 @router.post("/login")
 async def google_auth(request: AuthRequest, db: Session = Depends(database.get_db)):
-    # 1. Exchange authorization code for access token
     token_url = "https://oauth2.googleapis.com/token"
     data = {
         "code": request.code,
@@ -63,7 +61,6 @@ async def google_auth(request: AuthRequest, db: Session = Depends(database.get_d
     if "error" in token_data:
         raise HTTPException(status_code=400, detail=token_data.get("error_description"))
 
-    # 2. Fetch user info from Google
     user_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
     async with httpx.AsyncClient() as client:
         user_info_res = await client.get(
@@ -72,32 +69,42 @@ async def google_auth(request: AuthRequest, db: Session = Depends(database.get_d
         )
         user_info = user_info_res.json()
 
-    # 3. Domain Check
     user_email = user_info.get("email", "")
     if not user_email.endswith("@iitgn.ac.in"):
         raise HTTPException(status_code=403, detail="Access restricted to university students only.")
 
     google_sub = user_info.get("sub")
-    name = user_info.get("name")
-
-    # 4. Database Check / User Creation
+    
     user = db.query(models.Member).filter(models.Member.GoogleSub == google_sub).first()
 
+    # If user doesn't exist, tell frontend to show the "Complete Profile" form
     if not user:
-        # Note: You may need to handle ContactNumber gracefully if it's required in your DB
-        user = models.Member(
-            FullName=name,
-            Email=user_email,
-            Programme="NA",
-            BatchYear=datetime.now().year,
-            ContactNumber=f"NA-{google_sub[:6]}", # Temporary fallback to satisfy unique constraint
-            GoogleSub=google_sub
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        return {
+            "status": "requires_profile_completion", 
+            "google_sub": google_sub, 
+            "email": user_email, 
+            "name": user_info.get("name")
+        }
 
-    # 5. Create Local JWT
     access_token = create_jwt(user.MemberID)
+    return {"status": "success", "token": access_token, "user": user_info}
 
-    return {"message": "Success", "token": access_token, "user": user_info}
+@router.post("/complete-profile")
+def complete_profile(profile: schemas.ProfileCreate, db: Session = Depends(database.get_db)):
+    # Check if user somehow already exists
+    existing = db.query(models.Member).filter(models.Member.GoogleSub == profile.GoogleSub).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists.")
+        
+    new_user = models.Member(**profile.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Initialize their stats
+    new_stats = models.MemberStats(MemberID=new_user.MemberID)
+    db.add(new_stats)
+    db.commit()
+
+    access_token = create_jwt(new_user.MemberID)
+    return {"status": "success", "token": access_token}

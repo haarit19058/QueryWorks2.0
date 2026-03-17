@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import rides, auth
+
+# Import all your new modular routers
+from api import rides, auth, requests, messages, admin
 
 app = FastAPI(title="IITGN RideShare Portal")
 
-# Centralized CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"], 
@@ -13,9 +14,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include both routers
+# Mount them!
 app.include_router(auth.router)
 app.include_router(rides.router)
+app.include_router(requests.router)
+app.include_router(messages.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def root():
