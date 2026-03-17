@@ -1,0 +1,22 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from api import rides, auth
+
+app = FastAPI(title="IITGN RideShare Portal")
+
+# Centralized CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include both routers
+app.include_router(auth.router)
+app.include_router(rides.router)
+
+@app.get("/")
+def root():
+    return {"Message": "Successful Welcome to RideShare Portal"}
