@@ -85,7 +85,6 @@ async def google_auth(request: AuthRequest, db: Session = Depends(database.get_d
             "email": user_email, 
             "name": user_info.get("name")
         }
-
     access_token = create_jwt(user.MemberID)
     return {"status": "success", "token": access_token, "user": user_info}
 

@@ -7,6 +7,7 @@ from api import auth
 
 router = APIRouter(prefix="/messages", tags=["In-Ride Messaging"])
 
+# Add message to database
 @router.post("/{ride_id}")
 def send_message(
     ride_id: str, 
@@ -33,6 +34,8 @@ def send_message(
     db.commit()
     return {"message": "Sent"}
 
+# Receive all messages of that ride.
 @router.get("/{ride_id}")
 def get_messages(ride_id: str, db: Session = Depends(database.get_db)):
     return db.query(models.MessageHistory).filter(models.MessageHistory.RideID == ride_id).order_by(models.MessageHistory.Timestamp.asc()).all()
+
