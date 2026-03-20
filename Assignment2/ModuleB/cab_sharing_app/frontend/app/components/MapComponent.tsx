@@ -1,7 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { GEOAPIFY_API_KEY } from '../constants';
 
 interface MapComponentProps {
   source?: [number, number];
@@ -20,7 +19,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({ source, destination,
 
     mapRef.current = L.map(containerRef.current).setView([23.2127, 72.6845], 13);
 
-    L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`, {
+    L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${process.env.GEOAPIFY_API_KEY}`, {
       attribution: 'Powered by <a href="https://www.geoapify.com/" target="_blank">Geoapify</a> | <a href="https://openmaptiles.org/" target="_blank">© OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap</a> contributors',
       maxZoom: 20,
     }).addTo(mapRef.current);

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin } from 'lucide-react';
-import { GEOAPIFY_API_KEY } from '../constants';
 import { GeoLocation } from '../types';
 
 interface AutocompleteProps {
@@ -25,7 +24,7 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({ placeholder, onSelec
       if (query.length > 2) {
         try {
           const response = await fetch(
-            `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&apiKey=${GEOAPIFY_API_KEY}&filter=countrycode:in`
+            `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&apiKey=${process.env.GEOAPIFY_API_KEY}&filter=countrycode:in`
           );
           const data = await response.json();
           if (data.features) {
