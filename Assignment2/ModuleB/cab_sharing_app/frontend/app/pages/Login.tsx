@@ -31,6 +31,7 @@ export const Login: React.FC = () => {
               email: result.email,
               fullName: result.name,
               picture: result.picture,
+              google_sub: result.google_sub,  // 👈 add this
             },
           });
         } else {

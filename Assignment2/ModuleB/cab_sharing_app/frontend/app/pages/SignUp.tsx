@@ -23,16 +23,16 @@ interface FormErrors {
 }
 
 const PROGRAMMES = ['B.Tech', 'M.Tech', 'M.Sc', 'PhD', 'MBA', 'Other'];
-const BRANCHES   = ['CSE', 'EE', 'ME', 'CE', 'Chemical', 'Materials', 'Mathematics', 'Physics', 'Chemistry', 'HSS', 'Other'];
+const BRANCHES = ['CSE', 'EE', 'ME', 'CE', 'Chemical', 'Materials', 'Mathematics', 'Physics', 'Chemistry', 'HSS', 'Other'];
 
 export const Signup: React.FC = () => {
   const { registerUser } = useApp();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Pre-filled from Google via Login page navigate state
-  const { email = '', fullName = '', picture = '' } = (location.state as {
-    email: string; fullName: string; picture: string;
+  const { email = '', fullName = '', picture = '', google_sub = '' } = (location.state as {
+    email: string; fullName: string; picture: string; google_sub: string;  // 👈 add
   }) || {};
 
   const [form, setForm] = useState<SignupForm>({
@@ -44,7 +44,7 @@ export const Signup: React.FC = () => {
     Age: '',
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors]   = useState<FormErrors>({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const set = (field: keyof SignupForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -54,9 +54,9 @@ export const Signup: React.FC = () => {
   const validate = (): boolean => {
     const e: FormErrors = {};
     if (!form.ContactNumber.match(/^[6-9]\d{9}$/)) e.ContactNumber = 'Enter a valid 10-digit mobile number';
-    if (!form.Programme)  e.Programme  = 'Required';
-    if (!form.BatchYear)  e.BatchYear  = 'Required';
-    if (!form.Gender)     e.Gender     = 'Required';
+    if (!form.Programme) e.Programme = 'Required';
+    if (!form.BatchYear) e.BatchYear = 'Required';
+    if (!form.Gender) e.Gender = 'Required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -69,15 +69,16 @@ export const Signup: React.FC = () => {
       // POST /api/auth/register
       // Body: all Members fields (MemberID is AUTO_INCREMENT, handled by DB)
       await registerUser({
-        FullName:        fullName,
-        Email:           email,
+        google_sub,
+        FullName: fullName,
+        Email: email,
         ProfileImageURL: picture || 'default_avatar.png',
-        Programme:       form.Programme,
-        Branch:          form.Branch || null,
-        BatchYear:       Number(form.BatchYear),
-        ContactNumber:   form.ContactNumber,
-        Gender:          form.Gender as 'M' | 'F',
-        Age:             form.Age ? Number(form.Age) : null,
+        Programme: form.Programme,
+        Branch: form.Branch || null,
+        BatchYear: Number(form.BatchYear),
+        ContactNumber: form.ContactNumber,
+        Gender: form.Gender as 'M' | 'F',
+        Age: form.Age ? Number(form.Age) : null,
       });
       navigate('/rides');
     } catch (err) {
@@ -183,13 +184,12 @@ export const Signup: React.FC = () => {
                     key={val}
                     type="button"
                     onClick={() => set('Gender', val)}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-semibold text-sm transition-all ${
-                      form.Gender === val
-                        ? val === 'F'
-                          ? 'bg-pink-50 border-pink-300 text-pink-600'
-                          : 'bg-blue-50 border-blue-300 text-blue-600'
-                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-semibold text-sm transition-all ${form.Gender === val
+                      ? val === 'F'
+                        ? 'bg-pink-50 border-pink-300 text-pink-600'
+                        : 'bg-blue-50 border-blue-300 text-blue-600'
+                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
                   >
                     {icon} {label}
                   </button>
@@ -221,8 +221,7 @@ export const Signup: React.FC = () => {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const inputCls = (hasError: boolean) =>
-  `w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all ${
-    hasError ? 'border-red-300 bg-red-50' : 'border-slate-200'
+  `w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all ${hasError ? 'border-red-300 bg-red-50' : 'border-slate-200'
   }`;
 
 const Field: React.FC<{

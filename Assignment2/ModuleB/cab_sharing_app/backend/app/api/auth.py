@@ -94,7 +94,7 @@
 
 # @router.post("/signup")
 
-from fastapi import APIRouter, Depends, HTTPException, Cookie, Response
+from fastapi import APIRouter, Depends, HTTPException, Cookie, Response, Request
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -102,7 +102,9 @@ from pydantic import BaseModel
 import httpx
 import os
 from dotenv import load_dotenv
-
+# from ..schemas import SignupRequest
+from schemas import SignupRequest 
+import uuid
 import models
 import database
 
@@ -119,13 +121,14 @@ REDIRECT_URI = os.environ.get("REDIRECT_URI", "postmessage")
 class AuthRequest(BaseModel):
     code: str
 
-class SignupRequest(BaseModel):
-    google_sub: str
-    email: str
-    name: str
-    picture: str
-    phone: str        # whatever extra fields you collect
-    # add more fields as needed...
+# class SignupRequest(BaseModel):
+#     google_sub: str
+#     email: str
+#     name: str
+#     picture: str
+#     phone: str        
+#     # whatever extra fields you collect
+#     # add more fields as needed...
 
 def create_jwt(member_id: int):
     payload = {
@@ -195,6 +198,7 @@ async def google_login(
             headers={"Authorization": f"Bearer {token_data['access_token']}"}
         )
         user_info = user_info_res.json()
+    print(user_info)
 
     # 3. Domain check
     user_email = user_info.get("email", "")
@@ -232,23 +236,33 @@ async def google_login(
 
 @router.post("/signup")
 async def google_signup(
+    raw_request: Request,   # 👈 add this temporarily
     request: SignupRequest,
-    response: Response,           # 👈 needed to set cookie
+    response: Response,
     db: Session = Depends(database.get_db)
 ):
+
     # Guard: don't create duplicate users
     existing = db.query(models.Member).filter(models.Member.GoogleSub == request.google_sub).first()
     if existing:
         raise HTTPException(status_code=400, detail="User already exists. Please log in.")
+    
+    for column in models.Member.__table__.columns:
+        print(f"{column.name:20} {column.type} nullable={column.nullable}")
 
+    
     # Create new user with the extra details from signup form
     new_user = models.Member(
         GoogleSub=request.google_sub,
-        Email=request.email,
-        Name=request.name,
-        Picture=request.picture,
-        Phone=request.phone,
-        # add more fields...
+        Email=request.Email,                  # was request.email
+        FullName=request.FullName,
+        ProfileImageURL=request.ProfileImageURL,  # was request.picture
+        Programme=request.Programme,
+        Branch=request.Branch,
+        BatchYear=request.BatchYear,
+        ContactNumber=request.ContactNumber,  # was request.phone
+        Age=request.Age,
+        Gender=request.Gender,
     )
     db.add(new_user)
     db.commit()

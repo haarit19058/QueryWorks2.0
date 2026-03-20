@@ -28,6 +28,18 @@ class MemberOut(BaseModel):
     class Config:
         from_attributes = True
 
+class SignupRequest(BaseModel):
+    google_sub: str
+    FullName: str
+    Email: str                                    # was 'email'
+    ProfileImageURL: str = "default_avatar.png"   # was 'picture'
+    Programme: str
+    Branch: str | None = None
+    BatchYear: int
+    ContactNumber: str                            # was 'phone'
+    Age: int | None = None
+    Gender: str | None = None
+    # 'name' is gone — FullName replaces it
 
 class RideFull(BaseModel):
     RideID: str
