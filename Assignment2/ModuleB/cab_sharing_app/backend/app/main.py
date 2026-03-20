@@ -119,6 +119,9 @@ def create_cookie(response: Response, member_id: int):
         samesite="lax",    
         secure=False       
     )
+@app.post("")
+def home():
+    return {"message": "Welcome to home page!"}
 
 @app.post("/auth/login") # (Or /api/auth/login depending on how you fixed the 404s)
 def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_db)):
@@ -262,6 +265,7 @@ def get_bookings(db: Session = Depends(get_db), user: Member = Depends(get_curre
     requests = db.query(BookingRequest).filter(BookingRequest.PassengerID == user.MemberID).all()
     return requests
 
+# My booking requests (send by by)
 @app.post("/booking-requests")
 def request_join(data: RequestJoinData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     new_req = BookingRequest(RideID=data.RideID, PassengerID=user.MemberID)
@@ -269,6 +273,23 @@ def request_join(data: RequestJoinData, db: Session = Depends(get_db), user: Mem
     db.commit()
     db.refresh(new_req)
     return new_req
+
+# Booking requests sent to admin (sent to me)
+@app.get("/booking-requests/pending")
+def get_pending_requests(
+    db: Session = Depends(get_db),
+    user: Member = Depends(get_current_user)
+):
+    results = (
+        db.query(BookingRequest)
+        .join(ActiveRide, BookingRequest.RideID == ActiveRide.RideID)
+        .filter(
+            ActiveRide.AdminID == user.MemberID,   # YOU are admin
+            BookingRequest.RequestStatus == "PENDING"
+        )
+        .all()
+    )
+    return results
 
 @app.patch("/booking-requests/{request_id}")
 def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
@@ -363,3 +384,4 @@ def get_user_profile(member_id: int, db: Session = Depends(get_db)) -> Any:
         "TotalRidesHosted": stats.TotalRidesHosted if stats else 0,
         "NumberOfRatings": stats.NumberOfRatings if stats else 0,
     }
+
