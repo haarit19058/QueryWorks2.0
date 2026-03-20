@@ -287,7 +287,7 @@ def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depen
             
     db.commit()
     return {"message": "Request updated"}
-
+ 
 # --- Routes: Messages ---
 @app.get("/messages")
 def get_messages(rideId: str, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
@@ -326,8 +326,7 @@ def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: M
         "IsRead": new_msg.IsRead
     }
 
-
-@app.get("/api/members/{member_id}")
+@app.get("/members/{member_id}")
 def get_user_profile(member_id: int, db: Session = Depends(get_db)) -> Any:
     """
     Fetch a user's profile details along with their ride statistics.
