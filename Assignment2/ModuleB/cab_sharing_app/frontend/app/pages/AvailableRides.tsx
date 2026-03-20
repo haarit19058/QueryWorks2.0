@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { ChatDrawer } from '../components/ChatDrawer';
 import { MapPin, Clock, MessageSquare, ChevronRight, Search, Filter, Car, ChevronDown, ChevronUp } from 'lucide-react';
+import api from '../lib/api'; // <-- IMPORT AXIOS INSTANCE
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ interface Ride {
 }
 
 // ── RideCard ─────────────────────────────────────────────────────────────────
-
+// (Your RideCard component remains exactly the same here)
 interface RideCardProps {
   ride: Ride;
   requestStatus: string | null;
@@ -230,12 +231,14 @@ export const AvailableRides: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        // <-- USE API.GET INSTEAD OF FETCH
         const [ridesRes, reqRes] = await Promise.all([
-          fetch('/api/rides'),
-          fetch(`/api/booking-requests?passengerId=${currentUser?.MemberID}`),
+          api.get('/rides'),
+          api.get('/booking-requests'), // Backend figures out who you are via cookie
         ]);
-        const ridesData: Ride[] = await ridesRes.json();
-        const reqData: { RideID: string; RequestStatus: string }[] = await reqRes.json();
+        
+        const ridesData: Ride[] = ridesRes.data;
+        const reqData: { RideID: string; RequestStatus: string }[] = reqRes.data;
 
         // Exclude rides the current user created
         setAllRides(ridesData.filter(r => r.AdminID !== currentUser?.MemberID));
@@ -267,12 +270,8 @@ export const AvailableRides: React.FC = () => {
   const handleRequestJoin = async (rideId: string) => {
     setRequestStatuses(prev => ({ ...prev, [rideId]: 'PENDING' }));
     try {
-      const res = await fetch('/api/booking-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ RideID: rideId, PassengerID: currentUser?.MemberID }),
-      });
-      if (!res.ok) throw new Error();
+      // <-- USE API.POST INSTEAD OF FETCH
+      await api.post('/booking-requests', { RideID: rideId });
     } catch {
       setRequestStatuses(prev => ({ ...prev, [rideId]: '' }));
     }

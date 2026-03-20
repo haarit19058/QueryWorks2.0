@@ -1,10 +1,10 @@
-
 import { useState, useRef } from 'react';
 import { Autocomplete } from '../components/Autocomplete';
 import { MapComponent } from '../components/MapComponent';
 import { useApp } from '../store';
 import { GeoLocation } from '../types';
 import { Users, Clock, ArrowRight, CheckCircle, Calendar } from 'lucide-react';
+import api from '../lib/api'; // <-- IMPORT AXIOS INSTANCE
 
 interface AddRideProps {
   onSuccess: () => void;
@@ -26,10 +26,9 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
     e.preventDefault();
     if (!currentUser || !source || !destination || !time || !estimatedTime) return;
 
-    await fetch('/api/rides', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      // <-- USE API.POST INSTEAD OF FETCH
+      await api.post('/rides', {
         AdminID: currentUser.MemberID,
         Source: source.display_name,
         Destination: destination.display_name,
@@ -38,20 +37,20 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
         VehicleType: vehicleType,
         FemaleOnly: femaleOnly,
         EstimatedTime: Number(estimatedTime),
-      }),
-    });
+      });
 
-    setPublished(true);
-    setTimeout(onSuccess, 2000);
+      setPublished(true);
+      setTimeout(onSuccess, 2000);
+    } catch (error) {
+      console.error("Failed to publish ride", error);
+    }
   };
 
   const handleTimeClick = () => {
     if (timeInputRef.current) {
       try {
-        // Use the native showPicker method if available
         (timeInputRef.current as any).showPicker?.();
       } catch (err) {
-        // Fallback: just focus it
         timeInputRef.current.focus();
       }
     }
@@ -132,7 +131,7 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                 </select>
               </div>
 
-              {/* Estimated Time — shown to everyone */}
+              {/* Estimated Time */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-slate-400" /> Estimated Time (mins)
@@ -148,7 +147,7 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                 />
               </div>
 
-              {/* Female Only — only shown if current user is female */}
+              {/* Female Only */}
               {currentUser?.Gender === 'Female' && (
                 <div
                   onClick={() => setFemaleOnly(!femaleOnly)}
