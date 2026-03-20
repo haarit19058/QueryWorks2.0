@@ -7,9 +7,10 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from pydantic import BaseModel
 import jwt
+import json
 from datetime import datetime, timedelta, timezone
 
-from models import Base, Member, ActiveRide, BookingRequest, MessageHistory, MemberStat
+from models import * #Base, Member, ActiveRide, BookingRequest, MessageHistory, MemberStat
 from typing import Any
 
 from dotenv import load_dotenv
@@ -21,6 +22,7 @@ GOOGLE_CLIENT_ID = os.environ.get("CLIENT_ID")
 JWT_SECRET = os.environ.get("JWT_SECRET_KEY", "fallback-secret-key")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 ALGORITHM = "HS256"
+ADMIN_FILE = "admin.json"
 
 # --- Database Setup ---
 engine = create_engine(DATABASE_URL)
@@ -335,7 +337,7 @@ def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: M
     db.add(new_msg)
     db.commit()
     db.refresh(new_msg)
-    
+
     return {
         "MessageID": new_msg.MessageID,
         "RideID": new_msg.RideID,
@@ -385,3 +387,154 @@ def get_user_profile(member_id: int, db: Session = Depends(get_db)) -> Any:
         "NumberOfRatings": stats.NumberOfRatings if stats else 0,
     }
 
+
+# ------------------ HELPERS ------------------
+def read_admin_file():
+    with open(ADMIN_FILE, "r") as f:
+        return json.load(f)
+
+def write_admin_file(data):
+    with open(ADMIN_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+def is_admin(member_id: int) -> bool:
+    data = read_admin_file()
+    return member_id in data.get("Admin_Member_Ids", [])
+
+def verify_admin(member_id: int):
+    if not is_admin(member_id):
+        raise HTTPException(status_code=403, detail="Not an admin")
+
+
+# ------------------ PUBLIC CHECK ------------------
+@app.get("/api/is-admin")
+def check_admin(member_id: int):
+    return {"is_admin": is_admin(member_id)}
+
+
+# ------------------ ADMIN APIs ------------------
+
+# 1. GET current admins
+@app.get("/api/admin/current-admins")
+def get_current_admins(member_id: int, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    data = read_admin_file()
+    ids = data.get("Admin_Member_Ids", [])
+
+    admins = db.query(Member).filter(Member.MemberID.in_(ids)).all()
+
+    return [
+        {"MemberID": a.MemberID, "FullName": a.FullName, "Email": a.Email}
+        for a in admins
+    ]
+
+
+# 2. POST add admin
+@app.post("/api/admin/add-admin")
+def add_admin(member_id: int, email: str, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    member = db.query(Member).filter(Member.Email == email).first()
+    if not member:
+        raise HTTPException(404, "Member not found")
+
+    data = read_admin_file()
+
+    if member.MemberID in data["Admin_Member_Ids"]:
+        return {"msg": "Already admin"}
+
+    data["Admin_Member_Ids"].append(member.MemberID)
+    data["Admin_Emails"].append(email)
+
+    write_admin_file(data)
+
+    return {"msg": "Admin added"}
+
+
+# 3. GET member table
+@app.get("/api/admin/see-member-table")
+def see_members(member_id: int, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    members = db.query(Member).all()
+
+    return [
+        {
+            "MemberID": m.MemberID,
+            "Name": m.FullName,
+            "Email": m.Email,
+            "Programme": m.Programme,
+            "Branch": m.Branch,
+            "BatchYear": m.BatchYear,
+            "Contact": m.ContactNumber,
+            "Age": m.Age,
+            "Gender": m.Gender
+        }
+        for m in members
+    ]
+
+
+# 4. POST remove ride
+@app.post("/api/admin/remove-ride")
+def remove_ride(member_id: int, ride_id: str, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    ride = db.query(ActiveRide).filter(ActiveRide.RideID == ride_id).first()
+    if not ride:
+        raise HTTPException(404, "Ride not found")
+
+    db.delete(ride)
+    db.commit()
+
+    return {"msg": "Ride removed"}
+
+
+# 5. GET feedback table
+@app.get("/api/admin/ridefeedback-table")
+def get_feedback(member_id: int, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    feedbacks = db.query(RideFeedback).all()
+
+    return [
+        {
+            "RideID": f.RideID,
+            "MemberID": f.MemberID,
+            "Feedback": f.FeedbackText,
+            "Category": f.FeedbackCategory,
+            "SubmittedAt": f.SubmittedAt
+        }
+        for f in feedbacks
+    ]
+
+
+# 6. GET vehicles
+@app.get("/api/admin/see-vehicle")
+def get_vehicles(member_id: int, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    vehicles = db.query(Vehicle).all()
+
+    return [
+        {
+            "VehicleID": v.VehicleID,
+            "Type": v.VehicleType,
+            "Capacity": v.MaxCapacity
+        }
+        for v in vehicles
+    ]
+
+
+# 7. POST add vehicle
+@app.post("/api/admin/add-vehicle")
+def add_vehicle(member_id: int, vehicle_type: str, max_capacity: int, db: Session = Depends(get_db)):
+    verify_admin(member_id)
+
+    v = Vehicle(VehicleType=vehicle_type, MaxCapacity=max_capacity)
+
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+
+    return {"msg": "Vehicle added", "VehicleID": v.VehicleID}
