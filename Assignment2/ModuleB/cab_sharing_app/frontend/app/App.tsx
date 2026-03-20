@@ -9,6 +9,7 @@ import { RideHistory } from './pages/RideHistory';
 import { Login } from './pages/Login';
 import { Signup } from './pages/SignUp';
 import { AppProvider, useApp } from './store';
+import { ProfilePage } from './pages/Profile'
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useApp();
@@ -23,10 +24,18 @@ const AppContent: React.FC = () => {
       <Navbar />
       <main className="pb-12">
         <Routes>
+          <Route
+            path="/profile/:id"
+            element={
+              <PrivateRoute>
+                <ProfilePage />
+              </PrivateRoute>
+            }
+          />
           <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/rides" />} />
           <Route path="/signup" element={!currentUser ? <Signup /> : <Navigate to="/rides" />} />
           <Route path="/rides" element={<PrivateRoute><AvailableRides /></PrivateRoute>} />
-          <Route path="/add-ride" element={<PrivateRoute><AddRide onSuccess={() => {}} /></PrivateRoute>} />
+          <Route path="/add-ride" element={<PrivateRoute><AddRide onSuccess={() => { }} /></PrivateRoute>} />
           <Route path="/your-rides" element={<PrivateRoute><YourRides /></PrivateRoute>} />
           <Route path="/history" element={<PrivateRoute><RideHistory /></PrivateRoute>} />
           <Route path="*" element={<Navigate to={currentUser ? "/rides" : "/login"} replace />} />

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float, Date, Time
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -71,3 +71,66 @@ class MessageHistory(Base):
     # Relationships
     ride = relationship("ActiveRide", back_populates="messages")
     sender = relationship("Member", back_populates="messages")
+
+class MemberStat(Base):
+    __tablename__ = "MemberStats"
+
+    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    AverageRating = Column(Float, nullable=False, default=0.00)
+    TotalRidesTaken = Column(Integer, nullable=False, default=0)
+    TotalRidesHosted = Column(Integer, nullable=False, default=0)
+    NumberOfRatings = Column(Integer, nullable=False, default=0)
+
+class RidePassengerMap(Base):
+    __tablename__ = "RidePassengerMap"
+
+    RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    PassengerID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    IsConfirmed = Column(Boolean, nullable=False, default=False)
+
+class Vehicle(Base):
+    __tablename__ = "Vehicles"
+
+    VehicleID = Column(Integer, primary_key=True, autoincrement=True)
+    VehicleType = Column(String(30), nullable=False)
+    MaxCapacity = Column(Integer, nullable=False)
+
+class MemberRating(Base):
+    __tablename__ = "MemberRatings"
+
+    RideID = Column(String(50), primary_key=True)
+    SenderMemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    ReceiverMemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    Rating = Column(Float, nullable=False)
+    RatingComment = Column(String(500))
+    RatedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class RideFeedback(Base):
+    __tablename__ = "RideFeedback"
+
+    RideID = Column(String(50), primary_key=True)
+    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    FeedbackText = Column(String(500), nullable=False)
+    FeedbackCategory = Column(String(50))
+    SubmittedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class RideHistory(Base):
+    __tablename__ = "RideHistory"
+
+    RideID = Column(String(50), primary_key=True)
+    AdminID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    RideDate = Column(Date, nullable=False)
+    StartTime = Column(Time, nullable=False)
+    Source = Column(String(100), nullable=False)
+    Destination = Column(String(100), nullable=False)
+    Platform = Column(String(30), nullable=False)
+    Price = Column(Integer, nullable=False)
+    FemaleOnly = Column(Boolean)
+
+class Cancellation(Base):
+    __tablename__ = "Cancellation"
+
+    CancellationID = Column(Integer, primary_key=True, autoincrement=True) # Surrogate key for SQLAlchemy
+    RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    CancellationReason = Column(String(255), nullable=False)

@@ -1,5 +1,5 @@
 import requests as http_requests # Add this to your imports at the top
-from fastapi import FastAPI, Depends, HTTPException, Response, Request
+from fastapi import FastAPI, Depends, HTTPException, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine
@@ -9,7 +9,8 @@ from pydantic import BaseModel
 import jwt
 from datetime import datetime, timedelta, timezone
 
-from models import Base, Member, ActiveRide, BookingRequest, MessageHistory
+from models import Base, Member, ActiveRide, BookingRequest, MessageHistory, MemberStat
+from typing import Any
 
 from dotenv import load_dotenv
 import os
@@ -254,6 +255,7 @@ def update_ride_status(ride_id: str, data: UpdateRideStatusData, db: Session = D
     return {"message": "Status updated"}
 
 # --- Routes: Bookings ---
+# This api is for the AvailableRides page to show the user correct UI
 @app.get("/booking-requests")
 def get_bookings(db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     # The frontend fetches requests for the current user
@@ -322,4 +324,42 @@ def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: M
         "MessageText": new_msg.MessageText,
         "Timestamp": new_msg.Timestamp.isoformat(),
         "IsRead": new_msg.IsRead
+    }
+
+
+@app.get("/api/members/{member_id}")
+def get_user_profile(member_id: int, db: Session = Depends(get_db)) -> Any:
+    """
+    Fetch a user's profile details along with their ride statistics.
+    """
+    # Query both Member and MemberStat tables using an outer join
+    result = (
+        db.query(Member, MemberStat)
+        .outerjoin(MemberStat, Member.MemberID == MemberStat.MemberID)
+        .filter(Member.MemberID == member_id)
+        .first()
+    )
+
+    # If no member is found, return a 404
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found."
+        )
+
+    member, stats = result
+    return {
+        "MemberID": member.MemberID,
+        "FullName": member.FullName,
+        "ProfileImageURL": member.ProfileImageURL,
+        "Programme": member.Programme,
+        "Branch": member.Branch,
+        "BatchYear": member.BatchYear,
+        "Age": member.Age,
+        "Gender": member.Gender,
+        
+        "AverageRating": stats.AverageRating if stats else 0.0,
+        "TotalRidesTaken": stats.TotalRidesTaken if stats else 0,
+        "TotalRidesHosted": stats.TotalRidesHosted if stats else 0,
+        "NumberOfRatings": stats.NumberOfRatings if stats else 0,
     }
