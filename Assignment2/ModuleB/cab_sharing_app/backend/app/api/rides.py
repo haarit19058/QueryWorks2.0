@@ -15,9 +15,33 @@ def get_active_rides(db: Session = Depends(database.get_db)):
         joinedload(models.ActiveRide.passengers).joinedload(models.RidePassengerMap.member),
         joinedload(models.ActiveRide.admin)  
     ).all()
-    # Formatting omitted for brevity; logic identical to your original code
-    # ... 
-    return rides # Ensure you apply the same formatting loop you had
+    
+    formatted_rides = []
+    for ride in rides:
+        # Extract only confirmed passengers and map them to MemberOut schema
+        confirmed_passengers = [
+            schemas.MemberOut.model_validate(p.member) 
+            for p in ride.passengers if p.IsConfirmed and p.member
+        ]
+        
+        # Build the dictionary that strictly matches schemas.RideFull
+        ride_dict = {
+            "RideID": ride.RideID,
+            "AdminID": ride.AdminID,
+            "AdminName": ride.admin.FullName if ride.admin else None,
+            "AvailableSeats": ride.AvailableSeats,
+            "PassengerCount": ride.PassengerCount,
+            "Source": ride.Source,
+            "Destination": ride.Destination,
+            "VehicleType": ride.VehicleType,
+            "StartTime": ride.StartTime,
+            "EstimatedTime": ride.EstimatedTime,
+            "FemaleOnly": ride.FemaleOnly,
+            "Passengers": confirmed_passengers
+        }
+        formatted_rides.append(ride_dict)
+        
+    return formatted_rides
 
 @router.post("/create-ride", response_model=schemas.RideOut)
 def create_ride(ride: schemas.RideCreate, member_id: str = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):

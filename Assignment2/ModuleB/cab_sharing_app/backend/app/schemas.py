@@ -44,7 +44,8 @@ class RideFull(BaseModel):
     Passengers: list[MemberOut]
     
     class Config:
-        from_attributes = True
+        # from_attributes = True
+        orm_mode = True
 
 # ---------------------------------------------------------
 # NEW SCHEMAS ADDED FOR THE ONBOARDING & REQUESTS PIPELINE
