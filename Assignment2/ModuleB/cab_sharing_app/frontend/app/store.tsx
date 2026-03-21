@@ -29,7 +29,23 @@ export interface Ride {
   StartTime: string;
   EstimatedTime: number;
   FemaleOnly: boolean;
+  Status: 'ACTIVE' | 'COMPLETING' | 'CANCELLED';
   Passengers: { MemberID: number; FullName: string, ProfileImageUrl: string }[];
+}
+
+// Add to types in store.ts
+export interface RideHistoryEntry {
+  RideID: string;
+  AdminID: number;
+  RideDate: string;
+  StartTime: string;
+  Source: string;
+  Destination: string;
+  Platform: string;
+  Price: number | null;
+  FemaleOnly: boolean;
+  Role: 'HOST' | 'PASSENGER';
+  Passengers: { MemberID: number; FullName: string }[];
 }
 
 export interface BookingRequest {
@@ -49,6 +65,14 @@ export interface NewUserPayload {
   google_sub: string;
 }
 
+
+// FeedbackPayload type
+export interface FeedbackPayload {
+  feedbackText: string;
+  feedbackCategory: 'Safety' | 'Comfort' | 'Punctuality';
+  ratings: { receiverMemberID: number; rating: number; comment: string }[];
+}
+
 // ── Context type ─────────────────────────────────────────────────────────────
 
 interface AppContextType {
@@ -59,6 +83,7 @@ interface AppContextType {
   pendingRequests: BookingRequest[];
   loading: boolean;
   isAdmin: boolean;
+  rideHistory: RideHistoryEntry[];
 
   loginWithGoogle: (code: string) => Promise<NewUserPayload | { isNewUser: false }>;
   registerUser: (data: any) => Promise<void>;
@@ -71,6 +96,7 @@ interface AppContextType {
   updateRequest: (requestId: number, status: 'APPROVED' | 'REJECTED') => Promise<void>;
 
   completeRide: (rideId: string) => Promise<void>;
+  submitFeedback: (rideId: string, feedback: FeedbackPayload) => Promise<void>;
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -87,6 +113,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [loading, setLoading] = useState(true);  // blocks routes until /me resolves
   const [isAdmin, setIsAdmin] = useState(false);
+  const [rideHistory, setRideHistory] = useState<RideHistoryEntry[]>([]);
 
 
   // ── Restore session on app load ───────────────────────────────────────────
@@ -120,12 +147,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPendingRequests(pending.data);
   };
 
-  // const fetchRequests = async () => {
-  //   try {
-  //     const { data } = await api.get('/booking-requests');  // backend gets user from cookie
-  //     setRequests(data);
-  //   } catch (e) { console.error('fetchRequests:', e); }
-  // };
+
+  const fetchHistory = async () => {
+    try {
+      const { data } = await api.get('/ride-history');
+      setRideHistory(data);
+    } catch (e) { console.error('fetchHistory:', e); }
+  };
 
   useEffect(() => {
     if (!currentUser) {
@@ -136,9 +164,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
     fetchRides();
     fetchRequests();
+    fetchHistory();
     const interval = setInterval(() => {
       fetchRides();
       fetchRequests();
+      fetchHistory();
     }, 10000);
     return () => clearInterval(interval);
   }, [currentUser?.MemberID]);
@@ -191,9 +221,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const completeRide = async (rideId: string) => {
     try {
-      await api.patch(`/rides/${rideId}/status`, { status: 'COMPLETED' });
+      await api.patch(`/rides/${rideId}/status`, { status: 'COMPLETING', price: 200 });
       await fetchRides();
     } catch (e) { console.error('completeRide:', e); }
+  };
+
+  const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
+    // 1. Submit overall ride feedback
+    const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
+      // 1. Overall ride feedback first
+      const { data } = await api.post('/feedback', {
+        RideID: rideId,
+        FeedbackText: payload.feedbackText,
+        FeedbackCategory: payload.feedbackCategory,
+      });
+
+      // 2. Per-person ratings in parallel
+      await Promise.all(
+        payload.ratings.map(r =>
+          api.post('/ratings', {
+            RideID: rideId,
+            ReceiverMemberID: r.receiverMemberID,
+            Rating: r.rating,
+            RatingComment: r.comment,
+          })
+        )
+      );
+
+      // 3. If all passengers submitted, ride is now archived — refresh everything
+      if (data.allSubmitted) {
+        await Promise.all([fetchRides(), fetchHistory()]);
+      } else {
+        await fetchRides(); // ride still COMPLETING, just refresh status
+      }
+    };
+    // 2. Submit one rating per person
+    await Promise.all(
+      payload.ratings.map(r =>
+        api.post('/ratings', {
+          RideID: rideId,
+          ReceiverMemberID: r.receiverMemberID,
+          Rating: r.rating,
+          RatingComment: r.comment,
+        })
+      )
+    );
+
+    await fetchRides(); // ride may still be COMPLETING — just refresh
   };
 
   // ── Block render until session check completes ────────────────────────────
@@ -213,6 +287,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       pendingRequests,
       loading,
       isAdmin,
+      rideHistory,
       loginWithGoogle,
       registerUser,
       logout,
@@ -220,7 +295,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       refreshRides: fetchRides,
       requestToJoin,
       updateRequest,
-      completeRide
+      completeRide,
+      submitFeedback
     }}>
       {children}
     </AppContext.Provider>

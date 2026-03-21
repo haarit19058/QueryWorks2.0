@@ -87,9 +87,10 @@ class MemberStat(Base):
 class RidePassengerMap(Base):
     __tablename__ = "RidePassengerMap"
 
-    RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    # RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
+    RideID      = Column(String(50), primary_key=True)
     PassengerID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    IsConfirmed = Column(Boolean, nullable=False, default=False)
+    IsConfirmed = Column(Boolean, nullable=False, default=True)
 
 class Vehicle(Base):
     __tablename__ = "Vehicles"
@@ -112,7 +113,7 @@ class RideFeedback(Base):
     __tablename__ = "RideFeedback"
 
     RideID = Column(String(50), primary_key=True)
-    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
     FeedbackText = Column(String(500), nullable=False)
     FeedbackCategory = Column(String(50))
     SubmittedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
