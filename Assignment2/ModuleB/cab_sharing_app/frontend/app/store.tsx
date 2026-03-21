@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import api from './lib/api'; 
+import api from './lib/api';
 
 // ── Types (unchanged) ────────────────────────────────────────────────────────
 
@@ -55,6 +55,7 @@ interface AppContextType {
   rides: Ride[];
   requests: BookingRequest[];
   loading: boolean;
+  isAdmin: boolean;
 
   loginWithGoogle: (code: string) => Promise<NewUserPayload | { isNewUser: false }>;
   registerUser: (data: any) => Promise<void>;
@@ -76,16 +77,23 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [rides, setRides]             = useState<Ride[]>([]);
-  const [requests, setRequests]       = useState<BookingRequest[]>([]);
-  const [loading, setLoading]         = useState(true);  // blocks routes until /me resolves
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [requests, setRequests] = useState<BookingRequest[]>([]);
+  const [loading, setLoading] = useState(true);  // blocks routes until /me resolves
+  const [isAdmin, setIsAdmin] = useState(false);
+
 
   // ── Restore session on app load ───────────────────────────────────────────
   // Cookie is sent automatically — just ask backend who's logged in
   useEffect(() => {
     api.get('/auth/me')
-      .then(res => setCurrentUser(res.data))
-      .catch(() => setCurrentUser(null))   // 401 = no valid session
+      .then(res => {
+        setCurrentUser(res.data);
+        // Check admin status right after we know who the user is
+        return api.get('/is-admin', { params: { member_id: res.data.MemberID } });
+      })
+      .then(res => setIsAdmin(res.data.is_admin))
+      .catch(() => setCurrentUser(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -137,6 +145,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = async () => {
     await api.post('/auth/logout');  // backend clears the cookie
     setCurrentUser(null);
+    setIsAdmin(false);   
   };
 
   // ── Rides ─────────────────────────────────────────────────────────────────
@@ -186,6 +195,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       rides,
       requests,
       loading,
+      isAdmin,
       loginWithGoogle,
       registerUser,
       logout,
@@ -193,7 +203,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       refreshRides: fetchRides,
       requestToJoin,
       updateRequest,
-      completeRide,
+      completeRide
     }}>
       {children}
     </AppContext.Provider>

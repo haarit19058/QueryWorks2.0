@@ -22,7 +22,7 @@ interface FormErrors {
   Age?: string;
 }
 
-const PROGRAMMES = ['B.Tech', 'M.Tech', 'M.Sc', 'PhD', 'MBA', 'Other'];
+const PROGRAMMES = ['B.Tech', 'M.Tech', 'M.Sc', 'PhD'];
 const BRANCHES = ['CSE', 'EE', 'ME', 'CE', 'Chemical', 'Materials', 'Mathematics', 'Physics', 'Chemistry', 'HSS', 'Other'];
 
 export const Signup: React.FC = () => {

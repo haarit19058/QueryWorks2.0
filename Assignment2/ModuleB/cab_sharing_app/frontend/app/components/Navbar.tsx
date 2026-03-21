@@ -1,9 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Car, Plus, Compass, UserCircle, LogOut, History } from 'lucide-react';
+import { Car, Plus, ShieldCheck, Compass, UserCircle, LogOut, History } from 'lucide-react';
 import { useApp } from '../store';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, logout } = useApp();
+  const { isAdmin, currentUser, logout } = useApp();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -12,8 +12,7 @@ export const Navbar: React.FC = () => {
   };
 
   const navLinkCls = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 font-medium transition-colors ${
-      isActive ? 'text-emerald-400' : 'text-slate-300 hover:text-white'
+    `flex items-center gap-2 font-medium transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-300 hover:text-white'
     }`;
 
   return (
@@ -45,6 +44,11 @@ export const Navbar: React.FC = () => {
             <NavLink to="/history" className={navLinkCls}>
               <History className="w-4 h-4" /> History
             </NavLink>
+            {isAdmin && (                                    // ← only renders for admins
+              <NavLink to="/admin" className={navLinkCls}>
+                <ShieldCheck className="w-4 h-4" /> Admin
+              </NavLink>
+            )}
           </div>
         )}
 

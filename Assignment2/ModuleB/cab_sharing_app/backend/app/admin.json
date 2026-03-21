@@ -1,4 +1,12 @@
 {
-    "Admin_Emails":["vedant.acharya@iitgn.ac.in", "23110264@gmail.com"],
-    "Admin_Member_Ids":[]
+    "Admin_Emails": [
+        "vedant.acharya@iitgn.ac.in",
+        "anaya.shah@iitgn.ac.in",
+        "myra.khan@iitgn.ac.in"
+    ],
+    "Admin_Member_Ids": [
+        28498468,
+        28498467,
+        28498438
+    ]
 }

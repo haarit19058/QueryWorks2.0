@@ -9,7 +9,16 @@ import { RideHistory } from './pages/RideHistory';
 import { Login } from './pages/Login';
 import { Signup } from './pages/SignUp';
 import { AppProvider, useApp } from './store';
-import { ProfilePage } from './pages/Profile'
+import { ProfilePage } from './pages/Profile';
+import { AdminRoute } from './components/AdminRoute';
+import { AdminPage } from './pages/AdminPage';
+
+// Inside your <Routes>
+<Route path="/admin" element={
+  <AdminRoute>
+    <AdminPage />
+  </AdminRoute>
+} />
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useApp();
@@ -38,6 +47,11 @@ const AppContent: React.FC = () => {
           <Route path="/add-ride" element={<PrivateRoute><AddRide onSuccess={() => { }} /></PrivateRoute>} />
           <Route path="/your-rides" element={<PrivateRoute><YourRides /></PrivateRoute>} />
           <Route path="/history" element={<PrivateRoute><RideHistory /></PrivateRoute>} />
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          } />
           <Route path="*" element={<Navigate to={currentUser ? "/rides" : "/login"} replace />} />
         </Routes>
       </main>

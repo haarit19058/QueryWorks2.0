@@ -125,7 +125,7 @@ def create_cookie(response: Response, member_id: int):
 def home():
     return {"message": "Welcome to home page!"}
 
-@app.post("/auth/login") # (Or /api/auth/login depending on how you fixed the 404s)
+@app.post("/auth/login") # (Or /auth/login depending on how you fixed the 404s)
 def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_db)):
     # 1. Exchange the Authorization Code for an ID Token
     token_url = "https://oauth2.googleapis.com/token"
@@ -406,7 +406,7 @@ def verify_admin(member_id: int):
 
 
 # ------------------ PUBLIC CHECK ------------------
-@app.get("/api/is-admin")
+@app.get("/is-admin")
 def check_admin(member_id: int):
     return {"is_admin": is_admin(member_id)}
 
@@ -414,7 +414,7 @@ def check_admin(member_id: int):
 # ------------------ ADMIN APIs ------------------
 
 # 1. GET current admins
-@app.get("/api/admin/current-admins")
+@app.get("/admin/current-admins")
 def get_current_admins(member_id: int, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -430,7 +430,7 @@ def get_current_admins(member_id: int, db: Session = Depends(get_db)):
 
 
 # 2. POST add admin
-@app.post("/api/admin/add-admin")
+@app.post("/admin/add-admin")
 def add_admin(member_id: int, email: str, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -452,7 +452,7 @@ def add_admin(member_id: int, email: str, db: Session = Depends(get_db)):
 
 
 # 3. GET member table
-@app.get("/api/admin/see-member-table")
+@app.get("/admin/see-member-table")
 def see_members(member_id: int, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -475,7 +475,7 @@ def see_members(member_id: int, db: Session = Depends(get_db)):
 
 
 # 4. POST remove ride
-@app.post("/api/admin/remove-ride")
+@app.post("/admin/remove-ride")
 def remove_ride(member_id: int, ride_id: str, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -490,7 +490,7 @@ def remove_ride(member_id: int, ride_id: str, db: Session = Depends(get_db)):
 
 
 # 5. GET feedback table
-@app.get("/api/admin/ridefeedback-table")
+@app.get("/admin/ridefeedback-table")
 def get_feedback(member_id: int, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -509,7 +509,7 @@ def get_feedback(member_id: int, db: Session = Depends(get_db)):
 
 
 # 6. GET vehicles
-@app.get("/api/admin/see-vehicle")
+@app.get("/admin/see-vehicle")
 def get_vehicles(member_id: int, db: Session = Depends(get_db)):
     verify_admin(member_id)
 
@@ -526,7 +526,7 @@ def get_vehicles(member_id: int, db: Session = Depends(get_db)):
 
 
 # 7. POST add vehicle
-@app.post("/api/admin/add-vehicle")
+@app.post("/admin/add-vehicle")
 def add_vehicle(member_id: int, vehicle_type: str, max_capacity: int, db: Session = Depends(get_db)):
     verify_admin(member_id)
 

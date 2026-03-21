@@ -21,9 +21,9 @@ class Member(Base):
     Gender = Column(String(1), nullable=True)
 
     # Relationships
-    hosted_rides = relationship("ActiveRide", back_populates="admin")
-    booking_requests = relationship("BookingRequest", back_populates="passenger")
-    messages = relationship("MessageHistory", back_populates="sender")
+    hosted_rides = relationship("ActiveRide", passive_deletes=True, back_populates="admin")
+    booking_requests = relationship("BookingRequest", passive_deletes=True, back_populates="passenger")
+    messages = relationship("MessageHistory",passive_deletes=True, back_populates="sender")
 
 class ActiveRide(Base):
     __tablename__ = "ActiveRides"
@@ -41,9 +41,9 @@ class ActiveRide(Base):
     Status = Column(String(20), default="ACTIVE") # Added for standard state management
 
     # Relationships
-    admin = relationship("Member", back_populates="hosted_rides")
-    requests = relationship("BookingRequest", back_populates="ride")
-    messages = relationship("MessageHistory", back_populates="ride")
+    admin = relationship("Member", passive_deletes=True, back_populates="hosted_rides")
+    requests = relationship("BookingRequest", passive_deletes=True, back_populates="ride")
+    messages = relationship("MessageHistory", passive_deletes=True, back_populates="ride")
 
 class BookingRequest(Base):
     __tablename__ = "BookingRequests"
