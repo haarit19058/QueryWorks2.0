@@ -226,7 +226,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (e) { console.error('completeRide:', e); }
   };
 
-  const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
+  // const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
     // 1. Submit overall ride feedback
     const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
       // 1. Overall ride feedback first
@@ -255,20 +255,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchRides(); // ride still COMPLETING, just refresh status
       }
     };
-    // 2. Submit one rating per person
-    await Promise.all(
-      payload.ratings.map(r =>
-        api.post('/ratings', {
-          RideID: rideId,
-          ReceiverMemberID: r.receiverMemberID,
-          Rating: r.rating,
-          RatingComment: r.comment,
-        })
-      )
-    );
+  //   // 2. Submit one rating per person
+  //   await Promise.all(
+  //     payload.ratings.map(r =>
+  //       api.post('/ratings', {
+  //         RideID: rideId,
+  //         ReceiverMemberID: r.receiverMemberID,
+  //         Rating: r.rating,
+  //         RatingComment: r.comment,
+  //       })
+  //     )
+  //   );
 
-    await fetchRides(); // ride may still be COMPLETING — just refresh
-  };
+  //   await fetchRides(); // ride may still be COMPLETING — just refresh
+  // };
 
   // ── Block render until session check completes ────────────────────────────
   if (loading) {

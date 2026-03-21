@@ -334,6 +334,7 @@ def submit_feedback(
 ):
     ride = db.query(ActiveRide).filter(ActiveRide.RideID == data.RideID).first()
     if not ride or ride.Status != "COMPLETING":
+        print("incomplete")
         raise HTTPException(400, "Ride is not in completing state")
 
     # 1. Verify user is Host OR Confirmed Passenger
@@ -353,7 +354,9 @@ def submit_feedback(
         RideFeedback.MemberID == user.MemberID
     ).first()
     if already_submitted:
-        raise HTTPException(400, "Feedback already submitted")
+        db.delete(already_submitted)
+        # print("feedback")
+        # raise HTTPException(400, "Feedback already submitted")
 
     db.add(RideFeedback(
         RideID           = data.RideID,
@@ -387,7 +390,7 @@ def submit_feedback(
             Source      = ride.Source,
             Destination = ride.Destination,
             Platform    = ride.VehicleType,
-            Price       = None,
+            Price       = 200,
             FemaleOnly  = ride.FemaleOnly,
         ))
         
