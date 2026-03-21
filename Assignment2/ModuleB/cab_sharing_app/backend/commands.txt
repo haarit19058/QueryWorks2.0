@@ -4,3 +4,6 @@ sudo service mysql start -> Start Mysql service in Ubuntu (WSL)
 uvicorn main:app --reload  -> Run fastapi app from main.py
 
 
+Changes Done:
+Updated Logout function, added user to log who logged out.
+
