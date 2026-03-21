@@ -252,9 +252,9 @@ def get_me(user: Member = Depends(get_current_user)):
     return user
 
 @app.post("/auth/logout")
-def logout(response: Response, user: Member = Depends(get_current_user)):
+def logout(response: Response):
     response.delete_cookie("session_token")
-    logger.info(f"User logged out: {user.Email} (ID: {user.MemberID})")
+    # logger.info(f"User logged out: {user.Email} (ID: {user.MemberID})")
     return {"message": "Logged out"}
 
 # --- Routes: Rides ---
