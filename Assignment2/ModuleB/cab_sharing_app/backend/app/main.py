@@ -152,8 +152,8 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
         idinfo = id_token.verify_oauth2_token(extracted_id_token, google_requests.Request(), GOOGLE_CLIENT_ID)
         email = idinfo['email']
         
-        if not email.endswith('@iitgn.ac.in'):
-            raise HTTPException(status_code=403, detail="Only IITGN emails allowed")
+        # if not email.endswith('@iitgn.ac.in'):
+        #     raise HTTPException(status_code=403, detail="Only IITGN emails allowed")
 
         user = db.query(Member).filter(Member.Email == email).first()
         
@@ -215,7 +215,7 @@ def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_
         for req in approved_reqs:
             p = db.query(Member).filter(Member.MemberID == req.PassengerID).first()
             if p:
-                passengers.append({"MemberID": p.MemberID, "FullName": p.FullName})
+                passengers.append({"MemberID": p.MemberID, "FullName": p.FullName, "ProfileImageURL": p.ProfileImageURL})
         
         result.append({
             "RideID": ride.RideID,
@@ -240,7 +240,7 @@ def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_
 def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     new_ride = ActiveRide(
         AdminID=user.MemberID, Source=data.Source, Destination=data.Destination,
-        StartTime=datetime.fromisoformat(data.StartTime), AvailableSeats=data.AvailableSeats,
+        StartTime=datetime.fromisoformat(data.StartTime), AvailableSeats=data.AvailableSeats-1,
         PassengerCount=1, VehicleType=data.VehicleType, FemaleOnly=data.FemaleOnly,
         EstimatedTime=data.EstimatedTime
     )
@@ -254,7 +254,7 @@ def update_ride_status(ride_id: str, data: UpdateRideStatusData, db: Session = D
     ride = db.query(ActiveRide).filter(ActiveRide.RideID == ride_id, ActiveRide.AdminID == user.MemberID).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found or unauthorized")
-    
+    # if data.status
     ride.Status = data.status
     db.commit()
     return {"message": "Status updated"}
@@ -285,13 +285,22 @@ def get_pending_requests(
     results = (
         db.query(BookingRequest)
         .join(ActiveRide, BookingRequest.RideID == ActiveRide.RideID)
+        .join(Member, BookingRequest.PassengerID == Member.MemberID)
         .filter(
-            ActiveRide.AdminID == user.MemberID,   # YOU are admin
+            ActiveRide.AdminID == user.MemberID,
             BookingRequest.RequestStatus == "PENDING"
         )
+        .add_columns(Member.FullName.label("PassengerName"))
         .all()
     )
-    return results
+
+    return [
+        {
+            **row.BookingRequest.__dict__,
+            "PassengerName": row.PassengerName
+        }
+        for row in results
+    ]
 
 @app.patch("/booking-requests/{request_id}")
 def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):

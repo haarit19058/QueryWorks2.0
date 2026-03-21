@@ -29,13 +29,14 @@ export interface Ride {
   StartTime: string;
   EstimatedTime: number;
   FemaleOnly: boolean;
-  Passengers: { MemberID: number; FullName: string }[];
+  Passengers: { MemberID: number; FullName: string, ProfileImageUrl: string }[];
 }
 
 export interface BookingRequest {
   RequestID: number;
   RideID: string;
   PassengerID: number;
+  PassengerName: string;
   RequestStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   RequestedAt: string;
 }
@@ -53,7 +54,9 @@ export interface NewUserPayload {
 interface AppContextType {
   currentUser: User | null;
   rides: Ride[];
-  requests: BookingRequest[];
+  // requests: BookingRequest[];
+  myRequests: BookingRequest[];
+  pendingRequests: BookingRequest[];
   loading: boolean;
   isAdmin: boolean;
 
@@ -78,7 +81,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [rides, setRides] = useState<Ride[]>([]);
-  const [requests, setRequests] = useState<BookingRequest[]>([]);
+  // const [requests, setRequests] = useState<BookingRequest[]>([]);
+  const [myRequests, setMyRequests] = useState<BookingRequest[]>([]);       // passenger view
+  const [pendingRequests, setPendingRequests] = useState<BookingRequest[]>([]); // host view
+
   const [loading, setLoading] = useState(true);  // blocks routes until /me resolves
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -106,16 +112,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const fetchRequests = async () => {
-    try {
-      const { data } = await api.get('/booking-requests');  // backend gets user from cookie
-      setRequests(data);
-    } catch (e) { console.error('fetchRequests:', e); }
+    const [mine, pending] = await Promise.all([
+      api.get('/booking-requests'),
+      api.get('/booking-requests/pending'),
+    ]);
+    setMyRequests(mine.data);
+    setPendingRequests(pending.data);
   };
+
+  // const fetchRequests = async () => {
+  //   try {
+  //     const { data } = await api.get('/booking-requests');  // backend gets user from cookie
+  //     setRequests(data);
+  //   } catch (e) { console.error('fetchRequests:', e); }
+  // };
 
   useEffect(() => {
     if (!currentUser) {
       setRides([]);
-      setRequests([]);
+      setMyRequests([]);
+      setPendingRequests([]);
       return;
     }
     fetchRides();
@@ -145,7 +161,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = async () => {
     await api.post('/auth/logout');  // backend clears the cookie
     setCurrentUser(null);
-    setIsAdmin(false);   
+    setIsAdmin(false);
   };
 
   // ── Rides ─────────────────────────────────────────────────────────────────
@@ -158,11 +174,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const requestToJoin = async (rideId: string) => {
-    if (requests.find(r => r.RideID === rideId)) return;
+    if (myRequests.find(r => r.RideID === rideId)) return;
     try {
       const { data } = await api.post('/booking-requests', { RideID: rideId });
       // No need to pass PassengerID — backend gets it from cookie
-      setRequests(prev => [...prev, data]);
+      setMyRequests(prev => [...prev, data]);
     } catch (e) { console.error('requestToJoin:', e); }
   };
 
@@ -193,7 +209,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider value={{
       currentUser,
       rides,
-      requests,
+      myRequests,
+      pendingRequests,
       loading,
       isAdmin,
       loginWithGoogle,

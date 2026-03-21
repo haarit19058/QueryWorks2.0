@@ -2,6 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float, Date, Time
 from sqlalchemy.orm import declarative_base, relationship
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 Base = declarative_base()
 
@@ -52,7 +55,7 @@ class BookingRequest(Base):
     RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE"), nullable=False)
     PassengerID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE"), nullable=False)
     RequestStatus = Column(String(20), default='PENDING', nullable=False)
-    RequestedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    RequestedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
 
     # Relationships
     ride = relationship("ActiveRide", back_populates="requests")
@@ -65,7 +68,7 @@ class MessageHistory(Base):
     RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE"), nullable=False)
     SenderID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE"), nullable=False)
     MessageText = Column(String(500), nullable=False)
-    Timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    Timestamp = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
     IsRead = Column(Boolean, default=False, nullable=False)
 
     # Relationships
@@ -103,7 +106,7 @@ class MemberRating(Base):
     ReceiverMemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
     Rating = Column(Float, nullable=False)
     RatingComment = Column(String(500))
-    RatedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    RatedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
 
 class RideFeedback(Base):
     __tablename__ = "RideFeedback"
@@ -112,7 +115,7 @@ class RideFeedback(Base):
     MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
     FeedbackText = Column(String(500), nullable=False)
     FeedbackCategory = Column(String(50))
-    SubmittedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    SubmittedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
 
 class RideHistory(Base):
     __tablename__ = "RideHistory"

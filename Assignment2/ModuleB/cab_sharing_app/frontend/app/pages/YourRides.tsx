@@ -4,14 +4,14 @@ import { useApp } from '../store';
 import { Check, X, Clock, MapPin, Users, Car } from 'lucide-react';
 
 export const YourRides: React.FC = () => {
-  const { rides, requests, currentUser, updateRequest, completeRide } = useApp();
+  const { rides, myRequests, pendingRequests, currentUser, updateRequest, completeRide } = useApp();
   const navigate = useNavigate();
 
   // Rides where current user is the host (AdminID) — all rides in ActiveRides are active
   const myHostedRides = rides.filter(r => r.AdminID === currentUser?.MemberID);
 
   // Booking requests made by the current user
-  const myJoinedRequests = requests.filter(r => r.PassengerID === currentUser?.MemberID);
+  const myJoinedRequests = myRequests.filter(r => r.PassengerID === currentUser?.MemberID);
 
   const statusStyle = (status: string) => {
     if (status === 'APPROVED') return 'bg-emerald-50 text-emerald-600 border-emerald-100';
@@ -63,7 +63,7 @@ export const YourRides: React.FC = () => {
                     <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-xl self-start">
                       <Users className="w-4 h-4 text-emerald-400" />
                       <span className="text-sm font-bold">
-                        {ride.AvailableSeats} / {ride.PassengerCount} seats available
+                        {ride.PassengerCount} / {ride.AvailableSeats} passengers 
                       </span>
                     </div>
 
@@ -76,70 +76,106 @@ export const YourRides: React.FC = () => {
                   </div>
 
                   {/* Passenger list with approve/reject */}
-                  <div className="p-6 md:p-8">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
-                      Passengers ({ridePassengers.length})
-                    </h4>
+                  <div className="p-6 md:p-8 space-y-8">
 
-                    {ridePassengers.length === 0 ? (
-                      <p className="text-slate-400 text-sm italic">No passengers yet. Hang tight!</p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {ridePassengers.map(passenger => {
-                          // Find the booking request for this passenger to get status + RequestID
-                          const bookingReq = requests.find(
-                            r => r.RideID === ride.RideID && r.PassengerID === passenger.MemberID
-                          );
-                          const status = bookingReq?.RequestStatus ?? 'PENDING';
+                    {/* ── Confirmed Passengers ── */}
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                        Confirmed Passengers ({ridePassengers.length})
+                      </h4>
 
-                          return (
+                      {ridePassengers.length === 0 ? (
+                        <p className="text-slate-400 text-sm italic">No confirmed passengers yet.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {ridePassengers.map(passenger => (
                             <div
                               key={passenger.MemberID}
-                              className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100"
+                              className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer"
+                              onClick={() => navigate(`/profile/${passenger.MemberID}`)}
                             >
-                              <div
-                                className="flex items-center gap-3 cursor-pointer"
-                                onClick={() => navigate(`/profile/${passenger.MemberID}`)}
-                              >
-                                <img
-                                  src={`https://picsum.photos/seed/${passenger.MemberID}/60`}
-                                  className="w-10 h-10 rounded-full bg-white shadow-sm object-cover"
-                                  alt={passenger.FullName}
-                                />
-                                <div>
-                                  <p className="font-bold text-slate-800 hover:text-emerald-600 transition-colors">
-                                    {passenger.FullName}
-                                  </p>
-                                  <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                                    {status}
-                                  </p>
-                                </div>
+                              <img
+                                src={passenger.ProfileImageUrl}
+                                className="w-10 h-10 rounded-full bg-white shadow-sm object-cover"
+                                alt={passenger.FullName}
+                              />
+                              <div>
+                                <p className="font-bold text-slate-800 hover:text-emerald-600 transition-colors">
+                                  {passenger.FullName}
+                                </p>
+                                <p className="text-[10px] text-emerald-500 font-semibold uppercase tracking-wider">
+                                  Confirmed
+                                </p>
                               </div>
-
-                              {/* Only show approve/reject for PENDING requests */}
-                              {status === 'PENDING' && bookingReq && (
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => updateRequest(bookingReq.RequestID, 'REJECTED')}
-                                    className="p-2 bg-white text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-slate-100"
-                                    title="Reject"
-                                  >
-                                    <X className="w-5 h-5" />
-                                  </button>
-                                  <button
-                                    onClick={() => updateRequest(bookingReq.RequestID, 'APPROVED')}
-                                    className="p-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-                                    title="Approve"
-                                  >
-                                    <Check className="w-5 h-5" />
-                                  </button>
-                                </div>
-                              )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Pending Requests ── */}
+                    <div>
+                      {(() => {
+                        const ridePendingRequests = pendingRequests.filter(r => r.RideID === ride.RideID);
+                        return (
+                          <>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                              Pending Requests ({ridePendingRequests.length})
+                            </h4>
+
+                            {ridePendingRequests.length === 0 ? (
+                              <p className="text-slate-400 text-sm italic">No pending requests.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {ridePendingRequests.map(req => (
+                                  <div
+                                    key={req.RequestID}
+                                    className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100"
+                                  >
+                                    <div
+                                      className="flex items-center gap-3 cursor-pointer"
+                                      onClick={() => navigate(`/profile/${req.PassengerID}`)}
+                                    >
+                                      <img
+                                        src={`https://picsum.photos/seed/${req.PassengerID}/60`}
+                                        className="w-10 h-10 rounded-full bg-white shadow-sm object-cover"
+                                        alt={`Passenger ${req.PassengerID}`}
+                                      />
+                                      <div>
+                                        <p className="font-bold text-slate-800 hover:text-emerald-600 transition-colors">
+                                          {req.PassengerName ?? `Member #${req.PassengerID}`}
+                                        </p>
+                                        <p className="text-[10px] text-orange-500 font-semibold uppercase tracking-wider">
+                                          Awaiting Approval
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => updateRequest(req.RequestID, 'REJECTED')}
+                                        className="p-2 bg-white text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-slate-100"
+                                        title="Reject"
+                                      >
+                                        <X className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                        onClick={() => updateRequest(req.RequestID, 'APPROVED')}
+                                        className="p-2 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                                        title="Approve"
+                                      >
+                                        <Check className="w-5 h-5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+
                   </div>
                 </div>
               );
