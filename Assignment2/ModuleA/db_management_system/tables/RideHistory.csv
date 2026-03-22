@@ -1,0 +1,41 @@
+RideID,AdminID,RideDate,StartTime,Source,Destination,Platform,Price,FemaleOnly
+0e255964-65fb-4e26-955c-beb69785393b,28498442,2026-02-12,0 days 06:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),InDrive,196,0
+152056fd-7799-4aab-8156-c216eb76f0c3,28498441,2026-02-13,0 days 22:30:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),InDrive,451,1
+17bcba21-075c-49c6-8574-47214519b2e1,28498456,2026-02-02,0 days 07:30:00,Gift City,IIT Gandhinagar (Palaj),Private,384,0
+1bea2983-7e49-4705-a8a9-36f467fd0873,28498444,2026-02-07,0 days 10:15:00,Ahmedabad Railway Station,Ahmedabad Railway Station,InDrive,423,1
+1fd3e50d-c543-4110-ba47-7144a7321122,28498462,2026-02-14,0 days 08:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Private,133,0
+3357e8ea-a4a9-4f99-9a0a-3643a89d1a51,28498464,2026-01-29,0 days 16:30:00,Ahmedabad Railway Station,IIT Gandhinagar (Palaj),Ola,209,0
+3a5cad27-a2e5-4f20-a70e-ddea0e82a852,28498446,2026-02-07,0 days 11:15:00,Ahmedabad Railway Station,IIT Gandhinagar (Palaj),InDrive,599,1
+3cc9024d-a7ef-46db-87e7-480fadcfa16d,28498441,2026-02-03,0 days 08:30:00,Infocity,IIT Gandhinagar (Palaj),Private,382,0
+4515709e-df3f-4f01-829c-9bfa6aac3af7,28498449,2026-02-09,0 days 17:00:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Uber,488,0
+458849ce-94ef-4371-bd9b-1c55b9bec9b6,28498449,2026-02-01,0 days 16:30:00,IIT Gandhinagar (Palaj),SVPI Airport,Private,231,0
+480d513c-d0f3-44ae-802c-da1b7b64a87f,28498445,2026-02-13,0 days 09:00:00,Ahmedabad Railway Station,Ahmedabad Railway Station,Ola,146,0
+525867bd-3a18-403b-a0bb-601eee3ce3ee,28498448,2026-01-27,0 days 10:30:00,Infocity,IIT Gandhinagar (Palaj),InDrive,574,1
+5f2acb79-ebf8-49ef-8588-dd63706e769a,28498457,2026-01-30,0 days 22:00:00,Ahmedabad Railway Station,IIT Gandhinagar (Palaj),Uber,271,0
+62e067d5-5155-4b71-b65f-f7fdc2e1bbf9,28498465,2026-01-29,0 days 06:15:00,Infocity,Infocity,Ola,164,1
+754e06d2-a43b-4b62-8f4e-df9e15593eed,28498446,2026-01-31,0 days 21:00:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Uber,278,0
+766d2473-dc58-413f-a814-8c54c928e701,28498466,2026-02-04,0 days 13:00:00,Ahmedabad Railway Station,Ahmedabad Railway Station,Ola,155,0
+78d88260-537c-4439-b175-ff06c4eb0fcd,28498447,2026-01-27,0 days 12:30:00,IIT Gandhinagar (Palaj),Ahmedabad Railway Station,Ola,424,1
+7bafd39b-6e2c-44fb-8b65-373ab4607608,28498460,2026-01-31,0 days 08:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Private,327,0
+8469215d-ac85-4a64-ae88-51ec8a89bc09,28498454,2026-01-30,0 days 06:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Uber,183,0
+8a668859-41ad-4a2e-baa8-8e9afd0f1061,28498455,2026-02-13,0 days 07:15:00,Gift City,IIT Gandhinagar (Palaj),Uber,247,0
+8f5dedd8-21b3-4a5d-a1cf-8bd93db74b8c,28498439,2026-02-03,0 days 15:30:00,SVPI Airport,IIT Gandhinagar (Palaj),Ola,248,0
+8f7877f9-d082-4046-a9d0-daa413c1bcf8,28498447,2026-02-07,0 days 22:15:00,Infocity,Infocity,InDrive,231,0
+939a2d5e-4b8b-4614-b5a3-c3ac9fd6242f,28498454,2026-02-12,0 days 22:30:00,IIT Gandhinagar (Palaj),SVPI Airport,Ola,414,1
+974ff030-0e5b-4c22-a242-dee141ffe44b,28498460,2026-02-06,0 days 13:15:00,Kudasan,IIT Gandhinagar (Palaj),Uber,566,0
+9bd17bb6-2bf9-4245-bae6-5ac56f517ce4,28498467,2026-01-27,0 days 14:15:00,SG Highway,IIT Gandhinagar (Palaj),Uber,114,0
+9cdc933e-0676-41ba-ae65-7637db70d3ab,28498439,2026-02-12,0 days 16:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),InDrive,484,0
+9e1bc7fd-a916-4453-a378-017a0e304316,28498440,2026-02-02,0 days 19:15:00,IIT Gandhinagar (Palaj),Ahmedabad Railway Station,Ola,461,0
+a8749424-ac53-4119-9b95-6d621d37d052,28498450,2026-02-11,0 days 16:15:00,SG Highway,SG Highway,Uber,446,0
+b3b7e197-41bd-442c-b30e-94d2ed874009,28498452,2026-02-04,0 days 16:30:00,SG Highway,SG Highway,Private,483,0
+b539a100-4699-41d7-bc48-892b1d89bad2,28498439,2026-02-02,0 days 12:15:00,Ahmedabad Railway Station,Ahmedabad Railway Station,Uber,133,0
+bda24468-ca06-4713-988e-2f9e2cdaa500,28498453,2026-02-01,0 days 13:00:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Ola,510,0
+cf56023f-de0e-4c63-9db6-bbbd554d452b,28498451,2026-02-14,0 days 20:00:00,Ahmedabad Railway Station,IIT Gandhinagar (Palaj),Ola,243,0
+cf97d981-4613-4bac-971e-e6865052db20,28498450,2026-01-26,0 days 11:15:00,Infocity,IIT Gandhinagar (Palaj),InDrive,330,0
+d0f95a70-14c5-4c70-914b-b12771c1098a,28498458,2026-02-03,0 days 07:30:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Uber,261,0
+ded92a7a-cb50-4381-8926-2be10b4c45ca,28498449,2026-01-26,0 days 16:00:00,IIT Gandhinagar (Palaj),Gift City,Uber,476,0
+e4006a76-2154-4b20-ab75-7e2e8184c837,28498450,2026-01-27,0 days 11:15:00,SVPI Airport,IIT Gandhinagar (Palaj),InDrive,496,0
+e50d3163-58e1-4708-a621-efafef1425d6,28498450,2026-02-12,0 days 22:15:00,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Ola,200,1
+e83d295e-e4ef-48f1-aca2-ae62debe3381,28498459,2026-01-30,0 days 09:30:00,SG Highway,IIT Gandhinagar (Palaj),Uber,356,0
+e98af64b-0dd8-4ae5-90db-063445fb203a,28498446,2026-02-10,0 days 07:15:00,SG Highway,SG Highway,Private,474,1
+f45f8311-e93f-4eba-b0a1-caa4ca41f858,28498463,2026-02-07,0 days 22:00:00,IIT Gandhinagar (Palaj),SVPI Airport,Private,459,0

@@ -1,0 +1,21 @@
+RideID,AdminID,AvailableSeats,PassengerCount,Source,Destination,VehicleType,StartTime,EstimatedTime,FemaleOnly
+119fb431-101b-49d7-be17-92e9caab7c87,28498438,1,5,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),SUV Cab,2026-02-15 14:03:11,45,0
+1aa9cfe1-5983-4e69-b836-f2dd09f29b7b,28498461,0,1,SVPI Airport,IIT Gandhinagar (Palaj),Bike,2026-02-15 03:03:11,36,0
+2b1c3ff3-e65b-40d9-baa2-a294f843e35d,28498447,3,4,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Premium SUV,2026-02-16 08:03:11,87,0
+351d6041-9b8f-4b93-b3c8-613788d14dbe,28498443,0,4,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Sedan Cab,2026-02-16 06:03:11,81,1
+4ced265c-6fa0-4485-a41c-267d1b8c52bf,28498447,1,2,Gift City,IIT Gandhinagar (Palaj),Auto Rickshaw,2026-02-15 12:03:11,45,1
+4d54af73-b35e-4410-b352-f3eb42ebf559,28498438,0,6,Ahmedabad Railway Station,Ahmedabad Railway Station,SUV Cab,2026-02-16 04:03:11,56,0
+553aced0-6547-41e5-9aaa-26ddf8e769ed,28498442,1,6,IIT Gandhinagar (Palaj),Gift City,Premium SUV,2026-02-15 06:03:11,71,1
+6e0180e5-20d9-4e12-872f-f6b45ef5cd82,28498446,0,1,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Bike,2026-02-16 15:03:11,81,0
+6f179c80-7958-4a77-b0fb-00d61de45087,28498445,0,1,Gift City,IIT Gandhinagar (Palaj),Bike,2026-02-16 19:03:11,88,1
+7262c937-95e9-4526-9efc-1d2d65db305c,28498445,1,2,SVPI Airport,SVPI Airport,Auto Rickshaw,2026-02-16 18:03:11,55,0
+7dad019c-c58d-42db-be4f-9d7d794b57ed,28498464,0,3,Gift City,IIT Gandhinagar (Palaj),Auto Rickshaw,2026-02-16 13:03:11,56,0
+9735ef94-75bf-49ed-bb07-953d50455b23,28498438,1,3,IIT Gandhinagar (Palaj),Ahmedabad Railway Station,Mini Cab,2026-02-16 06:03:11,68,0
+a1287b4e-2a85-444b-9813-c5a4759cce8c,28498439,0,3,IIT Gandhinagar (Palaj),Kudasan,Auto Rickshaw,2026-02-16 21:03:11,62,1
+b673fea0-b774-41f3-9e76-2846183a7467,28498465,1,3,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Sedan Cab,2026-02-15 19:03:11,82,0
+b6facd13-306b-4a00-9ef0-da8c342217a1,28498449,0,6,SVPI Airport,SVPI Airport,SUV Cab,2026-02-16 17:03:11,33,0
+b83d9c8b-0278-4a57-9ba7-4b9673550776,28498459,3,3,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),SUV Cab,2026-02-15 09:03:11,39,1
+bc1f49d4-f927-4adf-97a8-86c33187bf44,28498459,2,1,IIT Gandhinagar (Palaj),SG Highway,Auto Rickshaw,2026-02-16 05:03:11,55,0
+c409227a-e96e-4444-8749-15c2bd03d2ae,28498455,0,6,Infocity,Infocity,SUV Cab,2026-02-15 19:03:11,38,0
+dd1ee643-2f02-4546-977c-bc55fd4b55ea,28498463,1,3,SVPI Airport,IIT Gandhinagar (Palaj),Mini Cab,2026-02-17 01:03:11,74,1
+f29f6565-5bc4-495a-9878-4b91b3b876c3,28498452,3,1,IIT Gandhinagar (Palaj),IIT Gandhinagar (Palaj),Sedan Cab,2026-02-16 21:03:11,78,0
