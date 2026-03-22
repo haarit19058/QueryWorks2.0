@@ -85,6 +85,7 @@ class MessageCreateData(BaseModel):
 
 class UpdateRideStatusData(BaseModel):
     status: str
+    platform: str | None = None
     reason: str | None = None
     price: int | None = None
 
@@ -199,26 +200,21 @@ def logout(response: Response):
 # --- Routes: Rides ---
 @app.get("/rides")
 def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
-    print(current_user)
+    # Get all the rows present in ActiveRide Table
     rides = db.query(ActiveRide).all()
     result = []
     
     for ride in rides:
         # Get host info
         host = db.query(Member).filter(Member.MemberID == ride.AdminID).first()
-        
-        # Get approved passengers
-        approved_reqs = db.query(BookingRequest).filter(
-            BookingRequest.RideID == ride.RideID, 
-            BookingRequest.RequestStatus == "APPROVED"
-        ).all()
-        
-        passengers = []
-        for req in approved_reqs:
-            p = db.query(Member).filter(Member.MemberID == req.PassengerID).first()
-            if p:
-                passengers.append({"MemberID": p.MemberID, "FullName": p.FullName, "ProfileImageURL": p.ProfileImageURL})
-        
+
+        passengers = (
+            db.query(Member.MemberID, Member.FullName, Member.ProfileImageURL)
+            .join(RidePassengerMap, Member.MemberID == RidePassengerMap.PassengerID)
+            .filter(RidePassengerMap.RideID == ride.RideID)
+            .all()
+        )
+
         result.append({
             "RideID": ride.RideID,
             "AdminID": ride.AdminID,
@@ -233,22 +229,45 @@ def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_
             "EstimatedTime": ride.EstimatedTime,
             "FemaleOnly": ride.FemaleOnly,
             "Status": ride.Status,
-            "Passengers": passengers
+            "Passengers": [
+                {
+                    "MemberID": p.MemberID,
+                    "FullName": p.FullName,
+                    "ProfileImageURL": p.ProfileImageURL
+                }
+                for p in passengers
+            ]
         })
-        
+
     return result
 
 @app.post("/rides")
 def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+    # Identify max capacity from vehicle type
+    print(data.VehicleType)
+    vehicle = db.query(Vehicle).filter(Vehicle.VehicleType==data.VehicleType).first()
+    # Add new ride
     new_ride = ActiveRide(
-        AdminID=user.MemberID, Source=data.Source, Destination=data.Destination,
-        StartTime=datetime.fromisoformat(data.StartTime), AvailableSeats=data.AvailableSeats-1,
-        PassengerCount=1, VehicleType=data.VehicleType, FemaleOnly=data.FemaleOnly,
-        EstimatedTime=data.EstimatedTime
+        AdminID       = user.MemberID,
+        Source        = data.Source,
+        Destination   = data.Destination,
+        StartTime     = datetime.fromisoformat(data.StartTime),
+        AvailableSeats = vehicle.MaxCapacity - 1,
+        PassengerCount = 1,
+        VehicleType   = data.VehicleType,
+        FemaleOnly    = data.FemaleOnly,
+        EstimatedTime = data.EstimatedTime
     )
     db.add(new_ride)
+    db.flush()
+
+    db.add(RidePassengerMap(
+        RideID      = new_ride.RideID,
+        PassengerID = user.MemberID,
+        IsConfirmed = True
+    ))
+
     db.commit()
-    db.refresh(new_ride)
     return new_ride
 
 @app.patch("/rides/{ride_id}/status")
@@ -265,15 +284,10 @@ def update_ride_status(
     if not ride:
         raise HTTPException(404, "Ride not found or unauthorized")
 
-    if data.status == "COMPLETING":
-        # Just flip status — passengers will see feedback form via polling
-        ride.Status = "COMPLETING"
-        print("Yeah")
-        db.commit()
-        return {"message": "Ride marked as completing, awaiting passenger feedback"}
-
     if data.status == "COMPLETED":
         # Archive to RideHistory
+        if not data.platform or not data.price:
+            raise HTTPException(400, "Both platform and price are required")
         db.add(RideHistory(
             RideID      = ride.RideID,
             AdminID     = ride.AdminID,
@@ -281,27 +295,37 @@ def update_ride_status(
             StartTime   = ride.StartTime.time(),
             Source      = ride.Source,
             Destination = ride.Destination,
-            Platform    = ride.VehicleType,
+            Platform    = data.platform,
             Price       = data.price,
             FemaleOnly  = ride.FemaleOnly,
         ))
 
-        # Update host's stat
-        host_stat = db.query(MemberStat).filter(MemberStat.MemberID == ride.AdminID).first()
-        if host_stat:
-            host_stat.TotalRidesHosted += 1
+        # Increment Rides Hosted/Taken
+        # host_stat = db.query(MemberStat).filter(MemberStat.MemberID == ride.AdminID).first()
+        # if not host_stat:
+        #     host_stat = MemberStat(MemberID=ride.AdminID)
+        #     db.add(host_stat)
+        # host_stat.TotalRidesHosted += 1
 
-        # Update each confirmed passenger's stat
         passengers = db.query(RidePassengerMap).filter(
             RidePassengerMap.RideID == ride_id,
             RidePassengerMap.IsConfirmed == True
         ).all()
         for p in passengers:
-            stat = db.query(MemberStat).filter(MemberStat.MemberID == p.PassengerID).first()
-            if stat:
-                stat.TotalRidesTaken += 1
+                stat = db.query(MemberStat).filter(MemberStat.MemberID == p.PassengerID).first()
+                if not stat:
+                    stat = MemberStat(MemberID=p.PassengerID, 
+                                        AverageRating    = 0.0,
+                                        TotalRidesTaken  = 0,
+                                        TotalRidesHosted = 0,
+                                        NumberOfRatings  = 0,)
+                    db.add(stat)
+                if p.PassengerID == ride.AdminID:
+                    stat.TotalRidesHosted += 1
+                else:
+                    stat.TotalRidesTaken += 1
 
-        db.delete(ride)  # cascades BookingRequests + MessageHistory, RidePassengerMap survives
+        db.delete(ride)
         db.commit()
         return {"message": "Ride completed and archived"}
 
@@ -332,31 +356,29 @@ def submit_feedback(
     db: Session = Depends(get_db),
     user: Member = Depends(get_current_user)
 ):
-    ride = db.query(ActiveRide).filter(ActiveRide.RideID == data.RideID).first()
-    if not ride or ride.Status != "COMPLETING":
-        print("incomplete")
-        raise HTTPException(400, "Ride is not in completing state")
+    # Ride is already in history now
+    ride = db.query(RideHistory).filter(RideHistory.RideID == data.RideID).first()
+    if not ride:
+        raise HTTPException(404, "Ride not found in history")
 
-    # 1. Verify user is Host OR Confirmed Passenger
-    is_host = (ride.AdminID == user.MemberID)
-    was_passenger = db.query(RidePassengerMap).filter(
-        RidePassengerMap.RideID == data.RideID,
-        RidePassengerMap.PassengerID == user.MemberID,
-        RidePassengerMap.IsConfirmed == True
-    ).first()
+    # Verify user was a passenger or the host
+    was_involved = (
+        ride.AdminID == user.MemberID or
+        db.query(RidePassengerMap).filter(
+            RidePassengerMap.RideID == data.RideID,
+            RidePassengerMap.PassengerID == user.MemberID,
+            RidePassengerMap.IsConfirmed == True
+        ).first() is not None
+    )
+    if not was_involved:
+        raise HTTPException(403, "You were not part of this ride")
 
-    if not is_host and not was_passenger:
-        raise HTTPException(403, "You were not a participant on this ride")
-
-    # Prevent duplicate feedback
     already_submitted = db.query(RideFeedback).filter(
         RideFeedback.RideID == data.RideID,
         RideFeedback.MemberID == user.MemberID
     ).first()
     if already_submitted:
-        db.delete(already_submitted)
-        # print("feedback")
-        # raise HTTPException(400, "Feedback already submitted")
+        raise HTTPException(400, "Feedback already submitted")
 
     db.add(RideFeedback(
         RideID           = data.RideID,
@@ -365,58 +387,7 @@ def submit_feedback(
         FeedbackCategory = data.FeedbackCategory,
     ))
     db.commit()
-
-    # 2. Update expected feedbacks to include the Host (+1)
-    confirmed_count = db.query(RidePassengerMap).filter(
-        RidePassengerMap.RideID == data.RideID,
-        RidePassengerMap.IsConfirmed == True
-    ).count()
-
-    expected_feedbacks = confirmed_count + 1  # All passengers PLUS the Host
-
-    feedback_count = db.query(RideFeedback).filter(
-        RideFeedback.RideID == data.RideID
-    ).count()
-
-    all_submitted = feedback_count >= expected_feedbacks
-
-    if all_submitted:
-        # Archive the ride automatically
-        db.add(RideHistory(
-            RideID      = ride.RideID,
-            AdminID     = ride.AdminID,
-            RideDate    = ride.StartTime.date(),
-            StartTime   = ride.StartTime.time(),
-            Source      = ride.Source,
-            Destination = ride.Destination,
-            Platform    = ride.VehicleType,
-            Price       = 200,
-            FemaleOnly  = ride.FemaleOnly,
-        ))
-        
-        host_stat = db.query(MemberStat).filter(MemberStat.MemberID == ride.AdminID).first()
-        if host_stat:
-            host_stat.TotalRidesHosted += 1
-
-        passengers = db.query(RidePassengerMap).filter(
-            RidePassengerMap.RideID == ride.RideID,
-            RidePassengerMap.IsConfirmed == True
-        ).all()
-        for p in passengers:
-            stat = db.query(MemberStat).filter(MemberStat.MemberID == p.PassengerID).first()
-            if stat:
-                stat.TotalRidesTaken += 1
-
-        db.delete(ride)
-        db.commit()
-        
-        db.delete(ride)
-        db.commit()
-
-    return {
-        "message": "Feedback submitted",
-        "allSubmitted": all_submitted 
-    }
+    return {"message": "Feedback submitted"}
 
 # Separate rating endpoint — called once per person being rated
 class RatingPayload(BaseModel):
@@ -458,23 +429,36 @@ def get_ride_history(db: Session = Depends(get_db), user: Member = Depends(get_c
     hosted = db.query(RideHistory).filter(RideHistory.AdminID == user.MemberID).all()
 
     taken = (
-        db.query(RideHistory)
-        .join(RidePassengerMap, RideHistory.RideID == RidePassengerMap.RideID)
-        .filter(RidePassengerMap.PassengerID == user.MemberID)
-        .all()
+    db.query(RideHistory)
+    .join(RidePassengerMap, RideHistory.RideID == RidePassengerMap.RideID)
+    .filter(
+        RidePassengerMap.PassengerID == user.MemberID,
+        RideHistory.AdminID != user.MemberID  # ← exclude rides they hosted
     )
+    .all()
+)
 
     def serialize(ride: RideHistory, role: str):
+        has_feedback = db.query(RideFeedback).filter(
+            RideFeedback.RideID == ride.RideID,
+            RideFeedback.MemberID == user.MemberID
+        ).first() is not None
+        
+        admin = db.query(Member).filter(Member.MemberID == ride.AdminID).first()
+
         passengers = (
             db.query(Member.MemberID, Member.FullName)
             .join(RidePassengerMap, Member.MemberID == RidePassengerMap.PassengerID)
             .filter(RidePassengerMap.RideID == ride.RideID)
             .all()
         )
+        
         return {
             **{c.name: getattr(ride, c.name) for c in ride.__table__.columns},
             "Role":       role,
             "Passengers": [{"MemberID": p.MemberID, "FullName": p.FullName} for p in passengers],
+            "AdminName":   admin.FullName if admin else "Unknown",
+            "HasFeedback": has_feedback,
         }
 
     return (
@@ -539,6 +523,11 @@ def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depen
         if ride and ride.AvailableSeats > 0:
             ride.AvailableSeats -= 1
             ride.PassengerCount += 1
+            db.add(RidePassengerMap(
+                RideID      = req.RideID,
+                PassengerID = req.PassengerID,
+                IsConfirmed = True
+            ))
             
     db.commit()
     return {"message": "Request updated"}

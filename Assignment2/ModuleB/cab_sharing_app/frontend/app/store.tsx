@@ -29,7 +29,6 @@ export interface Ride {
   StartTime: string;
   EstimatedTime: number;
   FemaleOnly: boolean;
-  Status: 'ACTIVE' | 'COMPLETING' | 'CANCELLED';
   Passengers: { MemberID: number; FullName: string, ProfileImageUrl: string }[];
 }
 
@@ -44,6 +43,8 @@ export interface RideHistoryEntry {
   Platform: string;
   Price: number | null;
   FemaleOnly: boolean;
+  AdminName:   string;   
+  HasFeedback: boolean;  
   Role: 'HOST' | 'PASSENGER';
   Passengers: { MemberID: number; FullName: string }[];
 }
@@ -95,8 +96,9 @@ interface AppContextType {
   requestToJoin: (rideId: string) => Promise<void>;
   updateRequest: (requestId: number, status: 'APPROVED' | 'REJECTED') => Promise<void>;
 
-  completeRide: (rideId: string) => Promise<void>;
+  completeRide: (rideId: string, price: number, platform: string) => Promise<void>;
   submitFeedback: (rideId: string, feedback: FeedbackPayload) => Promise<void>;
+  cancelRide: (rideId: string, reason: string) => Promise<void>;
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -219,24 +221,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (e) { console.error('updateRequest:', e); }
   };
 
-  const completeRide = async (rideId: string) => {
+  const completeRide = async (rideId: string, price: number, platform: string) => {
     try {
-      await api.patch(`/rides/${rideId}/status`, { status: 'COMPLETING', price: 200 });
-      await fetchRides();
+      await api.patch(`/rides/${rideId}/status`, { status: 'COMPLETED', platform: platform, price: price });
+      await Promise.all([fetchRides(), fetchHistory()]);
     } catch (e) { console.error('completeRide:', e); }
   };
 
-  // const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
-    // 1. Submit overall ride feedback
-    const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
-      // 1. Overall ride feedback first
-      const { data } = await api.post('/feedback', {
+  const cancelRide = async (rideId: string, reason: string) => {
+    try {
+      await api.patch(`/rides/${rideId}/status`, { status: 'CANCELLED', reason });
+      await fetchRides();
+    } catch (e) { console.error('cancelRide:', e); }
+  };
+
+
+  const submitFeedback = async (rideId: string, payload: FeedbackPayload) => {
+    try {
+      await api.post('/feedback', {
         RideID: rideId,
         FeedbackText: payload.feedbackText,
         FeedbackCategory: payload.feedbackCategory,
       });
-
-      // 2. Per-person ratings in parallel
       await Promise.all(
         payload.ratings.map(r =>
           api.post('/ratings', {
@@ -247,28 +253,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           })
         )
       );
-
-      // 3. If all passengers submitted, ride is now archived — refresh everything
-      if (data.allSubmitted) {
-        await Promise.all([fetchRides(), fetchHistory()]);
-      } else {
-        await fetchRides(); // ride still COMPLETING, just refresh status
-      }
-    };
-  //   // 2. Submit one rating per person
-  //   await Promise.all(
-  //     payload.ratings.map(r =>
-  //       api.post('/ratings', {
-  //         RideID: rideId,
-  //         ReceiverMemberID: r.receiverMemberID,
-  //         Rating: r.rating,
-  //         RatingComment: r.comment,
-  //       })
-  //     )
-  //   );
-
-  //   await fetchRides(); // ride may still be COMPLETING — just refresh
-  // };
+      await fetchHistory(); // refresh to update hasFeedback
+    } catch (e) { console.error('submitFeedback:', e); }
+  };
 
   // ── Block render until session check completes ────────────────────────────
   if (loading) {
@@ -288,6 +275,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       loading,
       isAdmin,
       rideHistory,
+      cancelRide,
       loginWithGoogle,
       registerUser,
       logout,

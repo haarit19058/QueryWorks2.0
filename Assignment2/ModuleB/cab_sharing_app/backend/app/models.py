@@ -112,11 +112,11 @@ class MemberRating(Base):
 class RideFeedback(Base):
     __tablename__ = "RideFeedback"
 
-    RideID = Column(String(50), primary_key=True)
-    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    FeedbackText = Column(String(500), nullable=False)
+    RideID           = Column(String(50), primary_key=True)
+    MemberID         = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE"), primary_key=True)
+    FeedbackText     = Column(String(500), nullable=False)
     FeedbackCategory = Column(String(50))
-    SubmittedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
+    SubmittedAt      = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
 
 class RideHistory(Base):
     __tablename__ = "RideHistory"
@@ -135,6 +135,6 @@ class Cancellation(Base):
     __tablename__ = "Cancellation"
 
     CancellationID = Column(Integer, primary_key=True, autoincrement=True) # Surrogate key for SQLAlchemy
-    RideID = Column(String(50), ForeignKey("ActiveRides.RideID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    RideID = Column(String(50), nullable=False)
     MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
     CancellationReason = Column(String(255), nullable=False)
