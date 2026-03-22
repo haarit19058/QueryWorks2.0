@@ -15,6 +15,9 @@ from typing import Any
 
 from dotenv import load_dotenv
 import os
+import logging
+from logging.handlers import RotatingFileHandler
+import time
 load_dotenv()
 
 DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URL") # Update to your MySQL connection string
@@ -23,6 +26,37 @@ JWT_SECRET = os.environ.get("JWT_SECRET_KEY", "fallback-secret-key")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 ALGORITHM = "HS256"
 ADMIN_FILE = "admin.json"
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+LOG_FILE_PATH = os.path.join(PARENT_DIR, "logs.log")
+
+log_formatter = logging.Formatter(
+    fmt="[%(asctime)s] %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+# 3. Setup the File Handler (Rotates at 5MB, keeps 3 backups)
+file_handler = RotatingFileHandler(
+    filename=LOG_FILE_PATH,
+    maxBytes=5 * 1024 * 1024,  # 5 MB max file size
+    backupCount=3              # Keep up to 3 old log files
+)
+file_handler.setFormatter(log_formatter)
+
+# 4. Setup Console Handler (So you still see logs in your terminal)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+# 5. Initialize the root logger
+logger = logging.getLogger("ride_sharing_app")
+logger.setLevel(logging.INFO) # Change to DEBUG for more verbosity
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# Override FastAPI and Uvicorn default loggers to use our file handler too
+logging.getLogger("uvicorn.access").handlers = [console_handler, file_handler]
+logging.getLogger("fastapi").handlers = [console_handler, file_handler]
 
 # --- Database Setup ---
 engine = create_engine(DATABASE_URL)
@@ -93,21 +127,25 @@ class UpdateRideStatusData(BaseModel):
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
     if not token:
+        logger.warning("Authentication failed: No session token found.")
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         
         # FIX: Cast the string subject back to an integer for the database
         member_id = int(payload.get("sub")) 
-        
+
+        logger.info(f"* DB SELECT: Checking Member table for MemberID: {member_id}")
         user = db.query(Member).filter(Member.MemberID == member_id).first()
         if not user:
+            logger.warning(f"Authentication failed: User ID {member_id} not found in database.")
             raise HTTPException(status_code=401, detail="User not found")
         return user
     except jwt.ExpiredSignatureError:
+        logger.warning("Authentication failed: Session expired.")
         raise HTTPException(status_code=401, detail="Session expired")
     except jwt.PyJWTError as e:
-        print(f"🔥🔥🔥 JWT DECODE ERROR: {e} 🔥🔥🔥") 
+        logger.error(f"JWT DECODE ERROR: {e}")
         raise HTTPException(status_code=401, detail="Invalid session")
 
 def create_cookie(response: Response, member_id: int):
@@ -143,7 +181,8 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
     token_res = http_requests.post(token_url, data=token_payload)
     
     if token_res.status_code != 200:
-        print("Google Token Exchange Error:", token_res.json()) # Helpful for debugging
+        # print("Google Token Exchange Error:", token_res.json()) # Helpful for debugging
+        logger.warning(f"Google Token Exchange Failed. Response: {token_res.json()}")
         raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
         
     token_data = token_res.json()
@@ -157,13 +196,18 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
         
         # if not email.endswith('@iitgn.ac.in'):
         #     raise HTTPException(status_code=403, detail="Only IITGN emails allowed")
+        if not email.endswith('@iitgn.ac.in'):
+            logger.warning(f"Failed login attempt: Unauthorized email domain ({email})")
 
+        logger.info(f"* DB SELECT: Checking Member table for Email: {email}")
         user = db.query(Member).filter(Member.Email == email).first()
         
         if user:
+            logger.info(f"User logged in successfully: {email} (ID: {user.MemberID})")
             create_cookie(response, user.MemberID)
             return {"isNewUser": False, "user": user}
         else:
+            logger.info(f"New user registration initiated for: {email}")
             return {
                 "isNewUser": True,
                 "email": email,
@@ -171,7 +215,8 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
                 "picture": idinfo.get("picture"),
                 "google_sub": idinfo["sub"]
             }
-    except ValueError:
+    except ValueError as e:
+        logger.error(f"Invalid Google token validation error: {e}")
         raise HTTPException(status_code=400, detail="Invalid Google token")
 
 @app.post("/auth/signup")
@@ -185,7 +230,9 @@ def signup(data: SignupData, response: Response, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    logger.info(f"* DB INSERT: Added new Member into database (Email: {data.Email}, ID: {new_user.MemberID})")
     create_cookie(response, new_user.MemberID)
+    logger.info(f"New user signed up successfully: {new_user.Email} (ID: {new_user.MemberID})")
     return {"user": new_user}
 
 @app.get("/auth/me")
@@ -200,12 +247,15 @@ def logout(response: Response):
 # --- Routes: Rides ---
 @app.get("/rides")
 def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
+    logger.info(f"Fetching all rides for UserID: {current_user.MemberID}")
+
+    logger.info("* DB SELECT: Fetch ActiveRide + Member (JOIN)")
     rides = (
         db.query(ActiveRide, Member)
         .join(Member, ActiveRide.AdminID == Member.MemberID)
         .all()
     )
-
+    logger.info(f"Fetched {len(rides)} rides")
     ride_ids = [r.ActiveRide.RideID for r in rides]
 
     passengers_data = (
@@ -248,8 +298,13 @@ def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_
 @app.post("/rides")
 def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     # Identify max capacity from vehicle type
-    print(data.VehicleType)
+    # print(data.VehicleType)
+    logger.info(f"Create ride request by UserID: {user.MemberID}")
+
+    # Fetch vehicle
+    logger.info(f"* DB SELECT: Fetch Vehicle for type: {data.VehicleType}")
     vehicle = db.query(Vehicle).filter(Vehicle.VehicleType==data.VehicleType).first()
+    logger.info(f"Vehicle found → MaxCapacity: {vehicle.MaxCapacity}")
     # Add new ride
     new_ride = ActiveRide(
         AdminID       = user.MemberID,
@@ -262,9 +317,13 @@ def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Membe
         FemaleOnly    = data.FemaleOnly,
         EstimatedTime = data.EstimatedTime
     )
+    logger.info("* DB INSERT: Adding new ActiveRide")
     db.add(new_ride)
     db.flush()
+    logger.info(f"New Ride created with RideID: {new_ride.RideID}")
 
+    # Add creator as passenger
+    logger.info("* DB INSERT: Adding creator to RidePassengerMap")
     db.add(RidePassengerMap(
         RideID      = new_ride.RideID,
         PassengerID = user.MemberID,
@@ -272,6 +331,7 @@ def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Membe
     ))
 
     db.commit()
+    logger.info(f"Ride successfully created → RideID: {new_ride.RideID}")
     return new_ride
 
 @app.patch("/rides/{ride_id}/status")
@@ -281,11 +341,13 @@ def update_ride_status(
     db: Session = Depends(get_db),
     user: Member = Depends(get_current_user)
 ):
+    logger.info(f"* DB SELECT: Fetching ActiveRide with RideID: {ride_id} for AdminID: {user.MemberID}")
     ride = db.query(ActiveRide).filter(
         ActiveRide.RideID == ride_id,
         ActiveRide.AdminID == user.MemberID
     ).first()
     if not ride:
+        logger.warning(f"Failed status update attempt: Ride {ride_id} not found or unauthorized by UserID {user.MemberID}")
         raise HTTPException(404, "Ride not found or unauthorized")
 
     if data.status == "COMPLETED":
@@ -368,11 +430,14 @@ def submit_feedback(
     user: Member = Depends(get_current_user)
 ):
     # Ride is already in history now
+    logger.info(f"* DB SELECT: Checking RideHistory for RideID {data.RideID}")
     ride = db.query(RideHistory).filter(RideHistory.RideID == data.RideID).first()
     if not ride:
+        logger.warning(f"Ride not found in history: {data.RideID}")
         raise HTTPException(404, "Ride not found in history")
 
     # Verify user was a passenger or the host
+    logger.info(f"* DB SELECT: Verifying if user {user.MemberID} was involved in Ride {data.RideID}")
     was_involved = (
         ride.AdminID == user.MemberID or
         db.query(RidePassengerMap).filter(
@@ -383,7 +448,7 @@ def submit_feedback(
     )
     if not was_involved:
         raise HTTPException(403, "You were not part of this ride")
-
+    logger.info(f"* DB SELECT: Checking if feedback already submitted by user {user.MemberID}")
     already_submitted = db.query(RideFeedback).filter(
         RideFeedback.RideID == data.RideID,
         RideFeedback.MemberID == user.MemberID
@@ -398,6 +463,7 @@ def submit_feedback(
         FeedbackCategory = data.FeedbackCategory,
     ))
     db.commit()
+    logger.info(f"* DB INSERT: Feedback added for RideID {data.RideID} by MemberID {user.MemberID}")
     return {"message": "Feedback submitted"}
 
 # Separate rating endpoint — called once per person being rated
@@ -410,6 +476,7 @@ class RatingPayload(BaseModel):
 @app.post("/ratings")
 def submit_rating(data: RatingPayload, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     # Prevent duplicate
+    logger.info(f"* DB SELECT: Checking existing rating by user {user.MemberID} for RideID {data.RideID}")
     existing = db.query(MemberRating).filter(
         MemberRating.RideID == data.RideID,
         MemberRating.SenderMemberID == user.MemberID,
@@ -425,7 +492,7 @@ def submit_rating(data: RatingPayload, db: Session = Depends(get_db), user: Memb
         Rating           = data.Rating,
         RatingComment    = data.RatingComment,
     ))
-
+    logger.info(f"* DB SELECT: Fetching MemberStat for ReceiverMemberID {data.ReceiverMemberID}")
     stat = db.query(MemberStat).filter(MemberStat.MemberID == data.ReceiverMemberID).first()
     if stat:
         total = stat.AverageRating * stat.NumberOfRatings
@@ -433,12 +500,15 @@ def submit_rating(data: RatingPayload, db: Session = Depends(get_db), user: Memb
         stat.AverageRating = (total + data.Rating) / stat.NumberOfRatings
 
     db.commit()
+    logger.info(f"* DB UPDATE: Rating submitted for MemberID {data.ReceiverMemberID} by MemberID {user.MemberID}")
     return {"message": "Rating submitted"}
 
 @app.get("/ride-history")
 def get_ride_history(db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+    logger.info(f"* DB SELECT: Fetching rides hosted by MemberID {user.MemberID}")
     hosted = db.query(RideHistory).filter(RideHistory.AdminID == user.MemberID).all()
 
+    logger.info(f"* DB SELECT: Fetching rides taken by MemberID {user.MemberID}")
     taken = (
     db.query(RideHistory)
     .join(RidePassengerMap, RideHistory.RideID == RidePassengerMap.RideID)
@@ -482,16 +552,19 @@ def get_ride_history(db: Session = Depends(get_db), user: Member = Depends(get_c
 @app.get("/booking-requests")
 def get_bookings(db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
     # The frontend fetches requests for the current user
+    logger.info(f"* DB SELECT: Fetching booking requests for MemberID {user.MemberID}")
     requests = db.query(BookingRequest).filter(BookingRequest.PassengerID == user.MemberID).all()
     return requests
 
 # My booking requests (send by by)
 @app.post("/booking-requests")
 def request_join(data: RequestJoinData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+    logger.info(f"* DB SELECT: Fetching pending booking requests for rides hosted by MemberID {user.MemberID}")
     new_req = BookingRequest(RideID=data.RideID, PassengerID=user.MemberID)
     db.add(new_req)
     db.commit()
     db.refresh(new_req)
+    logger.info(f"* DB INSERT: Booking request created for RideID {data.RideID} by MemberID {user.MemberID}")
     return new_req
 
 # Booking requests sent to admin (sent to me)
@@ -522,6 +595,7 @@ def get_pending_requests(
 
 @app.patch("/booking-requests/{request_id}")
 def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+    logger.info(f"* DB SELECT: Fetching booking request {request_id}")
     req = db.query(BookingRequest).filter(BookingRequest.RequestID == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -541,6 +615,7 @@ def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depen
             ))
             
     db.commit()
+    logger.info(f"* DB UPDATE: Booking request {request_id} status updated to {data.RequestStatus}")
     return {"message": "Request updated"}
  
 # --- Routes: Messages ---
