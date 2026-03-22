@@ -6,8 +6,8 @@
 
 Add a `.env` file in the following directories:
 
-* `ModuleB/cab_sharing_app/backend/app`
-* `ModuleB/cab_sharing_app/frontend/app`
+* `ModuleB/app/backend`
+* `ModuleB/app/frontend`
 
 ---
 
@@ -16,7 +16,7 @@ Add a `.env` file in the following directories:
 1. Navigate to the backend directory:
 
    ```bash
-   cd ModuleB/cab_sharing_app/backend/app
+   cd ModuleB/app/backend
    ```
 
 2. Install dependencies:
@@ -40,7 +40,7 @@ Add a `.env` file in the following directories:
 1. Navigate to the frontend directory:
 
    ```bash
-   cd ModuleB/cab_sharing_app/frontend/app
+   cd ModuleB/app/frontend
    ```
 
 2. Install dependencies:
