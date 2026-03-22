@@ -111,7 +111,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid session")
 
 def create_cookie(response: Response, member_id: int):
-    expire = datetime.now(timezone.utc) + timedelta(days=7)
+    expire = datetime.now(IST) + timedelta(days=1)
     # FIX: Cast member_id to a string ("sub" must be a string)
     token = jwt.encode({"sub": str(member_id), "exp": expire}, JWT_SECRET, algorithm=ALGORITHM)
     
@@ -128,7 +128,7 @@ def create_cookie(response: Response, member_id: int):
 def home():
     return {"message": "Welcome to home page!"}
 
-@app.post("/auth/login") # (Or /auth/login depending on how you fixed the 404s)
+@app.post("/auth/login") 
 def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_db)):
     # 1. Exchange the Authorization Code for an ID Token
     token_url = "https://oauth2.googleapis.com/token"
