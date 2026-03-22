@@ -28,8 +28,8 @@ ALGORITHM = "HS256"
 ADMIN_FILE = "admin.json"
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PARENT_DIR = os.path.dirname(CURRENT_DIR)
-LOG_FILE_PATH = os.path.join(PARENT_DIR, "logs.log")
+PARENT_DIR = os.path.dirname(os.path.dirname(CURRENT_DIR))
+LOG_FILE_PATH = os.path.join(PARENT_DIR, "logs", "audit.log")
 
 log_formatter = logging.Formatter(
     fmt="[%(asctime)s] %(levelname)-8s | %(name)s | %(message)s",
@@ -195,9 +195,8 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
         email = idinfo['email']
         
         # if not email.endswith('@iitgn.ac.in'):
+        #     logger.warning(f"Failed login attempt: Unauthorized email domain ({email})")
         #     raise HTTPException(status_code=403, detail="Only IITGN emails allowed")
-        if not email.endswith('@iitgn.ac.in'):
-            logger.warning(f"Failed login attempt: Unauthorized email domain ({email})")
 
         logger.info(f"* DB SELECT: Checking Member table for Email: {email}")
         user = db.query(Member).filter(Member.Email == email).first()
