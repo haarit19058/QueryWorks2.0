@@ -96,7 +96,7 @@ class Vehicle(Base):
     __tablename__ = "Vehicles"
 
     VehicleID = Column(Integer, primary_key=True, autoincrement=True)
-    VehicleType = Column(String(30), nullable=False)
+    VehicleType = Column(String(30), unique = True, nullable=False)
     MaxCapacity = Column(Integer, nullable=False)
 
 class MemberRating(Base):

@@ -200,21 +200,32 @@ def logout(response: Response):
 # --- Routes: Rides ---
 @app.get("/rides")
 def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
-    # Get all the rows present in ActiveRide Table
-    rides = db.query(ActiveRide).all()
+    rides = (
+        db.query(ActiveRide, Member)
+        .join(Member, ActiveRide.AdminID == Member.MemberID)
+        .all()
+    )
+
+    ride_ids = [r.ActiveRide.RideID for r in rides]
+
+    passengers_data = (
+        db.query(RidePassengerMap.RideID, Member.MemberID, Member.FullName, Member.ProfileImageURL)
+        .join(Member, Member.MemberID == RidePassengerMap.PassengerID)
+        .filter(RidePassengerMap.RideID.in_(ride_ids))
+        .all()
+    )
+
+    # group passengers
+    passenger_map = {}
+    for p in passengers_data:
+        passenger_map.setdefault(p.RideID, []).append({
+            "MemberID": p.MemberID,
+            "FullName": p.FullName,
+            "ProfileImageURL": p.ProfileImageURL
+        })
+
     result = []
-    
-    for ride in rides:
-        # Get host info
-        host = db.query(Member).filter(Member.MemberID == ride.AdminID).first()
-
-        passengers = (
-            db.query(Member.MemberID, Member.FullName, Member.ProfileImageURL)
-            .join(RidePassengerMap, Member.MemberID == RidePassengerMap.PassengerID)
-            .filter(RidePassengerMap.RideID == ride.RideID)
-            .all()
-        )
-
+    for ride, host in rides:
         result.append({
             "RideID": ride.RideID,
             "AdminID": ride.AdminID,
@@ -229,14 +240,7 @@ def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_
             "EstimatedTime": ride.EstimatedTime,
             "FemaleOnly": ride.FemaleOnly,
             "Status": ride.Status,
-            "Passengers": [
-                {
-                    "MemberID": p.MemberID,
-                    "FullName": p.FullName,
-                    "ProfileImageURL": p.ProfileImageURL
-                }
-                for p in passengers
-            ]
+            "Passengers": passenger_map.get(ride.RideID, [])
         })
 
     return result
@@ -300,30 +304,37 @@ def update_ride_status(
             FemaleOnly  = ride.FemaleOnly,
         ))
 
-        # Increment Rides Hosted/Taken
-        # host_stat = db.query(MemberStat).filter(MemberStat.MemberID == ride.AdminID).first()
-        # if not host_stat:
-        #     host_stat = MemberStat(MemberID=ride.AdminID)
-        #     db.add(host_stat)
-        # host_stat.TotalRidesHosted += 1
-
         passengers = db.query(RidePassengerMap).filter(
             RidePassengerMap.RideID == ride_id,
             RidePassengerMap.IsConfirmed == True
         ).all()
+        passenger_ids = [p.PassengerID for p in passengers]
+
+        stats = {
+            s.MemberID: s
+            for s in db.query(MemberStat)
+            .filter(MemberStat.MemberID.in_(passenger_ids))
+            .all()
+        }
+
         for p in passengers:
-                stat = db.query(MemberStat).filter(MemberStat.MemberID == p.PassengerID).first()
-                if not stat:
-                    stat = MemberStat(MemberID=p.PassengerID, 
-                                        AverageRating    = 0.0,
-                                        TotalRidesTaken  = 0,
-                                        TotalRidesHosted = 0,
-                                        NumberOfRatings  = 0,)
-                    db.add(stat)
-                if p.PassengerID == ride.AdminID:
-                    stat.TotalRidesHosted += 1
-                else:
-                    stat.TotalRidesTaken += 1
+            stat = stats.get(p.PassengerID)
+
+            if not stat:
+                stat = MemberStat(
+                    MemberID=p.PassengerID,
+                    AverageRating=0.0,
+                    TotalRidesTaken=0,
+                    TotalRidesHosted=0,
+                    NumberOfRatings=0
+                )
+                db.add(stat)
+                stats[p.PassengerID] = stat
+
+            if p.PassengerID == ride.AdminID:
+                stat.TotalRidesHosted += 1
+            else:
+                stat.TotalRidesTaken += 1
 
         db.delete(ride)
         db.commit()
@@ -535,22 +546,27 @@ def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depen
 # --- Routes: Messages ---
 @app.get("/messages")
 def get_messages(rideId: str, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
-    messages = db.query(MessageHistory).filter(MessageHistory.RideID == rideId).order_by(MessageHistory.Timestamp.asc()).all()
-    
-    result = []
-    for msg in messages:
-        sender = db.query(Member).filter(Member.MemberID == msg.SenderID).first()
-        result.append({
+    messages = (
+        db.query(MessageHistory, Member)
+        .join(Member, MessageHistory.SenderID == Member.MemberID)
+        .filter(MessageHistory.RideID == rideId)
+        .order_by(MessageHistory.Timestamp.asc())
+        .all()
+    )
+
+    return [
+        {
             "MessageID": msg.MessageID,
             "RideID": msg.RideID,
             "SenderID": msg.SenderID,
-            "SenderName": sender.FullName if sender else "Unknown",
-            "SenderAvatar": sender.ProfileImageURL if sender else "",
+            "SenderName": member.FullName if member else "Unknown",
+            "SenderAvatar": member.ProfileImageURL if member else "",
             "MessageText": msg.MessageText,
             "Timestamp": msg.Timestamp.isoformat(),
             "IsRead": msg.IsRead
-        })
-    return result
+        }
+        for msg, member in messages
+    ]
 
 @app.post("/messages")
 def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):

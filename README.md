@@ -7,7 +7,7 @@
 Add a `.env` file in the following directories:
 
 * `ModuleB/cab_sharing_app/backend/app`
-* `ModuleA/cab_sharing_app/frontend/app`
+* `ModuleB/cab_sharing_app/frontend/app`
 
 ---
 
