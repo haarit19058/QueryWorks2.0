@@ -294,3 +294,157 @@ Log comes here....[2026-03-22 16:48:55] INFO     | ride_sharing_app | * DB SELEC
 [2026-03-22 16:51:55] INFO     | uvicorn.access | 127.0.0.1:47214 - "GET /booking-requests HTTP/1.1" 200
 [2026-03-22 16:51:55] INFO     | uvicorn.access | 127.0.0.1:47208 - "GET /rides HTTP/1.1" 200
 [2026-03-22 16:51:55] INFO     | uvicorn.access | 127.0.0.1:47222 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:14:18] WARNING  | ride_sharing_app | Authentication failed: Session expired.
+[2026-03-28 16:14:18] WARNING  | ride_sharing_app | Authentication failed: Session expired.
+[2026-03-28 16:14:18] INFO     | uvicorn.access | 127.0.0.1:52406 - "GET /auth/me HTTP/1.1" 401
+[2026-03-28 16:14:18] INFO     | uvicorn.access | 127.0.0.1:52410 - "GET /auth/me HTTP/1.1" 401
+[2026-03-28 16:14:50] INFO     | uvicorn.access | 127.0.0.1:34252 - "OPTIONS /auth/login HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for Email: haarit.chavda@iitgn.ac.in
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | User logged in successfully: haarit.chavda@iitgn.ac.in (ID: 28498468)
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34258 - "POST /auth/login HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34258 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34264 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34278 - "GET /booking-requests/pending HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetching rides hosted by MemberID 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34270 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetching rides taken by MemberID 28498468
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:14:51] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34266 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34286 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34264 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:14:51] INFO     | uvicorn.access | 127.0.0.1:34258 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | * DB SELECT: Fetching rides hosted by MemberID 28498468
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:03] INFO     | uvicorn.access | 127.0.0.1:39714 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:03] INFO     | uvicorn.access | 127.0.0.1:39716 - "GET /booking-requests/pending HTTP/1.1" 200
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | * DB SELECT: Fetching rides taken by MemberID 28498468
+[2026-03-28 16:19:03] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:03] INFO     | uvicorn.access | 127.0.0.1:39730 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:19:03] INFO     | uvicorn.access | 127.0.0.1:39712 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Fetching rides hosted by MemberID 28498468
+[2026-03-28 16:19:12] INFO     | uvicorn.access | 127.0.0.1:47612 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:12] INFO     | uvicorn.access | 127.0.0.1:47616 - "GET /booking-requests/pending HTTP/1.1" 200
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | * DB SELECT: Fetching rides taken by MemberID 28498468
+[2026-03-28 16:19:12] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:12] INFO     | uvicorn.access | 127.0.0.1:47624 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:19:12] INFO     | uvicorn.access | 127.0.0.1:47610 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:17] INFO     | uvicorn.access | 127.0.0.1:47616 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:17] INFO     | uvicorn.access | 127.0.0.1:47612 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:17] INFO     | uvicorn.access | 127.0.0.1:47610 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:17] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:17] INFO     | uvicorn.access | 127.0.0.1:47610 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:20] INFO     | uvicorn.access | 127.0.0.1:47610 - "POST /auth/logout HTTP/1.1" 200
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:19:20] INFO     | uvicorn.access | 127.0.0.1:47612 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:20] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:20] INFO     | uvicorn.access | 127.0.0.1:47616 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:19:21] INFO     | uvicorn.access | 127.0.0.1:47610 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:21] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:19:21] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:19:21] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:19:21] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:19:21] INFO     | uvicorn.access | 127.0.0.1:47610 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:19:34] ERROR    | ride_sharing_app | Invalid Google token validation error: Token used too early, 1774694974 < 1774694975. Check that your computer's clock is set correctly.
+[2026-03-28 16:19:34] INFO     | uvicorn.access | 127.0.0.1:52044 - "POST /auth/login HTTP/1.1" 400
+[2026-03-28 16:20:15] ERROR    | ride_sharing_app | Invalid Google token validation error: Token used too early, 1774695015 < 1774695016. Check that your computer's clock is set correctly.
+[2026-03-28 16:20:15] INFO     | uvicorn.access | 127.0.0.1:40536 - "POST /auth/login HTTP/1.1" 400
+[2026-03-28 16:21:37] WARNING  | ride_sharing_app | Authentication failed: No session token found.
+[2026-03-28 16:21:37] WARNING  | ride_sharing_app | Authentication failed: No session token found.
+[2026-03-28 16:21:37] INFO     | uvicorn.access | 127.0.0.1:34180 - "GET /auth/me HTTP/1.1" 401
+[2026-03-28 16:21:37] INFO     | uvicorn.access | 127.0.0.1:34184 - "GET /auth/me HTTP/1.1" 401
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for Email: haarit.chavda@iitgn.ac.in
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | User logged in successfully: haarit.chavda@iitgn.ac.in (ID: 28498468)
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55902 - "POST /auth/login HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55902 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55948 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetching rides hosted by MemberID 28498468
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55934 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetching rides taken by MemberID 28498468
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55960 - "GET /booking-requests/pending HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55968 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55918 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55902 - "GET /rides HTTP/1.1" 200
+[2026-03-28 16:21:52] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:21:52] INFO     | uvicorn.access | 127.0.0.1:55948 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Checking Member table for MemberID: 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Fetching rides hosted by MemberID 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Fetching booking requests for MemberID 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Fetching rides taken by MemberID 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | Fetching all rides for UserID: 28498468
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | * DB SELECT: Fetch ActiveRide + Member (JOIN)
+[2026-03-28 16:22:02] INFO     | uvicorn.access | 127.0.0.1:57108 - "GET /booking-requests HTTP/1.1" 200
+[2026-03-28 16:22:02] INFO     | uvicorn.access | 127.0.0.1:57104 - "GET /booking-requests/pending HTTP/1.1" 200
+[2026-03-28 16:22:02] INFO     | uvicorn.access | 127.0.0.1:57122 - "GET /ride-history HTTP/1.1" 200
+[2026-03-28 16:22:02] INFO     | ride_sharing_app | Fetched 20 rides
+[2026-03-28 16:22:02] INFO     | uvicorn.access | 127.0.0.1:57134 - "GET /rides HTTP/1.1" 200
