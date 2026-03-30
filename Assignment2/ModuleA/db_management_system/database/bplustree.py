@@ -1,293 +1,168 @@
-"""
-B+ Tree Implementation
-
-Supports:
-- Insert (with splitting)
-- Delete (with merge/borrow)
-- Search (binary search in leaves)
-- Range Query (via linked leaves)
-
-Leaf nodes are connected as a doubly linked list for efficient range queries.
-"""
-
+import json
 import math
-import graphviz
 import os
+import graphviz
+from functools import partial
+from logging import getLogger
+from typing import Optional, Union, Iterator, Iterable
 
+from . import utils
+from .const import TreeConf
+from .entry import Record, Reference, OpaqueData
+from .memory import FileMemory
+from .node import (
+    Node, LonelyRootNode, RootNode, InternalNode, LeafNode, OverflowNode
+)
+from .serializer import Serializer, IntSerializer
 
-class Node:
-    """
-    Base node class for B+ Tree
-    """
-    
-    def __init__(self, order):
-        self.order = order
-        self.keys = []
-        self.parent = None
-
-    def is_full(self):
-        return len(self.keys) == self.order
-
-
-class LeafNode(Node):
-    """
-    Leaf nodes store actual key-value pairs and are linked (DLL)
-    """
-
-    def __init__(self, order):
-        super().__init__(order)
-        self.prev = None
-        self.next = None
-        self.values = []
-
-
-class InternalNode(Node):
-    """
-    Internal nodes store keys and child pointers
-    """
-    
-    def __init__(self, order):
-        super().__init__(order)
-        self.children = []
-
+logger = getLogger(__name__)
 
 class BPlusTree:
+    __slots__ = ['_filename', '_tree_conf', '_mem', '_root_node_page',
+                 '_is_open', 'LonelyRootNode', 'RootNode', 'InternalNode',
+                 'LeafNode', 'OverflowNode', 'Record', 'Reference']
 
-    def __init__(self, order=3, dtype=int):
-        self.root = LeafNode(order)
-        self.order = order
-        self.dtype = dtype
+    def __init__(self, filename: str, order: int=3, page_size: int=4096,
+                 key_size: int=8, value_size: int=128, cache_size: int=64,
+                 serializer: Optional[Serializer]=None):
+        self._filename = filename
+        self._tree_conf = TreeConf(
+            page_size, order, key_size, value_size,
+            serializer or IntSerializer()
+        )
+        self._create_partials()
+        self._mem = FileMemory(filename, self._tree_conf, cache_size=cache_size)
+        try:
+            metadata = self._mem.get_metadata()
+        except ValueError:
+            self._initialize_empty_tree()
+        else:
+            self._root_node_page, self._tree_conf = metadata
+        self._is_open = True
 
+    def close(self):
+        with self._mem.write_transaction:
+            if not self._is_open:
+                return
+            self._mem.close()
+            self._is_open = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    # ==========================================
+    # YOUR CUSTOM API - MAPPED TO ACID BACKEND
+    # ==========================================
 
     def search(self, key):
-        """
-        Search for a key in the B+ Tree.
-
-        Steps:
-        1. Navigate to correct leaf using _find_leaf
-        2. Perform binary search within leaf node
-
-        Returns:
-            value if found, else None
-        """
-        leaf = self._find_leaf(key)
-        start = 0
-        end = len(leaf.keys) - 1
-
-        while start <= end:
-            mid = (start + end) // 2
-
-            if key > leaf.keys[mid]:
-                start = mid + 1
-
-            elif key == leaf.keys[mid]:
-                return leaf.values[mid]
-
-            else:
-                end = mid - 1
-
-        return None
-
-
-    def _find_leaf(self, key):
-        """
-        Traverse from root to find the correct leaf node for a key.
-        """
-        curr = self.root
-
-        while isinstance(curr, InternalNode):
-            i = 0
-
-            while i < len(curr.keys) and key >= curr.keys[i]:
-                i += 1
-
-            curr = curr.children[i]
-
-        return curr
-
+        """Search for a key, returning the deserialized value."""
+        with self._mem.read_transaction:
+            node = self._search_in_tree(key, self._root_node)
+            try:
+                record = node.get_entry(key)
+                raw_bytes = self._get_value_from_record(record)
+                return json.loads(raw_bytes.decode('utf-8'))
+            except ValueError:
+                return None
 
     def insert(self, key, value):
-        """
-        Insert key-value pair into tree.
-        Handles root split if root becomes full.
-        """
-        root = self.root
-
-        if len(root.keys) == self.order - 1:
-            new_root = InternalNode(self.order)
-            new_root.children.append(self.root)
-            self.root = new_root
-
-            self._split_child(new_root, 0)
-            self._insert_non_full(new_root, key, value)
-
-        else:
-            self._insert_non_full(root, key, value)
-
-
-    def _insert_non_full(self, node, key, value):
-        """
-        Insert into a node guaranteed to be non-full.
-        Performs recursive insertion and splits children if needed.
-        """
-        if isinstance(node, LeafNode):
-            insert_idx = 0
-
-            while insert_idx < len(node.keys) and key > node.keys[insert_idx]:
-                insert_idx += 1
-                
-            # handle duplicate key — update value instead of inserting twice
-            if insert_idx < len(node.keys) and node.keys[insert_idx] == key:
-                node.values[insert_idx] = value
-                return
-
-            node.keys.insert(insert_idx, key)
-            node.values.insert(insert_idx, value)
-
-        else:
-            insert_idx = 0
-
-            while insert_idx < len(node.keys) and key >= node.keys[insert_idx]:
-                insert_idx += 1
-
-            child = node.children[insert_idx]
-
-            if len(child.keys) == self.order - 1:
-                self._split_child(node, insert_idx)
-
-                if key >= node.keys[insert_idx]:
-                    insert_idx += 1
-
-            self._insert_non_full(node.children[insert_idx], key, value)
-
-
-    def _split_child(self, parent, index):
-        """
-        Split a full child node.
-
-        Leaf:
-        - Split keys & values
-        - Maintain linked list
-
-        Internal:
-        - Promote middle key
-        - Split children
-        """
-        child = parent.children[index]
-        mid = len(child.keys) // 2
-        promoted_key = child.keys[mid]
-
-        if isinstance(child, LeafNode):
-            new_child = LeafNode(self.order)
-
-            new_child.keys = child.keys[mid:]
-            new_child.values = child.values[mid:]
-
-            child.keys = child.keys[:mid]
-            child.values = child.values[:mid]
-
-            new_child.next = child.next
-
-            if child.next:
-                child.next.prev = new_child
-
-            child.next = new_child
-            new_child.prev = child
-
-        else:
-            new_child = InternalNode(self.order)
-
-            new_child.keys = child.keys[mid + 1:]
-            new_child.children = child.children[mid + 1:]
-
-            child.keys = child.keys[:mid]
-            child.children = child.children[:mid + 1]
-
-        parent.keys.insert(index, promoted_key)
-        parent.children.insert(index + 1, new_child)
-      
+        """Insert key-value pair, routing through the ACID write transaction."""
+        # Serialize your arbitrary Python objects to bytes for the database
+        val_bytes = json.dumps(value).encode('utf-8')
         
+        with self._mem.write_transaction:
+            node = self._search_in_tree(key, self._root_node)
+            try:
+                existing_record = node.get_entry(key)
+                # If it exists, update it (handling overflow pages if needed)
+                if existing_record.overflow_page:
+                    self._delete_overflow(existing_record.overflow_page)
+                if len(val_bytes) <= self._tree_conf.value_size:
+                    existing_record.value = val_bytes
+                    existing_record.overflow_page = None
+                else:
+                    existing_record.value = None
+                    existing_record.overflow_page = self._create_overflow(val_bytes)
+                self._mem.set_node(node)
+                return
+            except ValueError:
+                pass # Key doesn't exist, proceed with normal insert
+
+            if len(val_bytes) <= self._tree_conf.value_size:
+                record = self.Record(key, value=val_bytes)
+            else:
+                first_overflow_page = self._create_overflow(val_bytes)
+                record = self.Record(key, value=None, overflow_page=first_overflow_page)
+
+            if node.can_add_entry:
+                node.insert_entry(record)
+                self._mem.set_node(node)
+            else:
+                node.insert_entry(record)
+                self._split_leaf(node)
+
     def update(self, key, new_value):
-        """
-        Update value associated with an existing key.
-        Return True if successful.
-        """
-        leaf = self._find_leaf(key)
-
-        for i, k in enumerate(leaf.keys):
-
-            if k == key:
-                leaf.values[i] = new_value
-
-                return True
-
+        """Update existing value. Returns True if successful."""
+        # In this implementation, insert handles replacement implicitly
+        val = self.search(key)
+        if val is not None:
+            self.insert(key, new_value)
+            return True
         return False
 
-
     def range_query(self, start_key, end_key):
-        """
-        Efficient range query using linked leaf nodes.
-        Traverses sequentially from start_key to end_key.
-        """
-        leaf = self._find_leaf(start_key)
+        """Efficient range query utilizing the B+Tree leaf sequence."""
         results = []
-
-        while leaf:
-
-            for i, key in enumerate(leaf.keys):
-
-                if key > end_key:
-                    return results
-
-                if key >= start_key:
-                    results.append((key, leaf.values[i]))
-
-            leaf = leaf.next
-
+        
+        # Simulate inclusive upper bound. 
+        # If it's a string, append a null byte. If it's an int, add 1.
+        if isinstance(end_key, str):
+            stop_bound = end_key + '\x00'
+        else:
+            stop_bound = end_key + 1
+            
+        with self._mem.read_transaction:
+            for record in self._iter_slice(slice(start_key, stop_bound)):
+                if record.key > end_key:
+                    break
+                if record.key >= start_key:
+                    raw_bytes = self._get_value_from_record(record)
+                    results.append((record.key, json.loads(raw_bytes.decode('utf-8'))))
         return results
-
 
     def get_all(self):
-        """
-        Return all key-value pairs in sorted order.
-
-        Process:
-        - Go to leftmost leaf
-        - Traverse using next pointers
-        """
+        """Return all key-value pairs."""
         results = []
-        node = self.root
-
-        while isinstance(node, InternalNode):
-            node = node.children[0]
-
-        while node:
-
-            for i in range(len(node.keys)):
-                results.append((node.keys[i], node.values[i]))
-
-            node = node.next
-
+        with self._mem.read_transaction:
+            for record in self._iter_slice(slice(None)):
+                raw_bytes = self._get_value_from_record(record)
+                results.append((record.key, json.loads(raw_bytes.decode('utf-8'))))
         return results
 
-
-    def _fmt_key(self, key):
+    def delete(self, key):
         """
-        Shorten a key for display. Truncates long strings such as UUIDs.
+        Delete key from tree safely within a transaction.
+        Note: Persistent page-based B+Trees often defer complex structural 
+        merges (underflow) to background vacuums to avoid locking. This method
+        removes the record and cleans up the leaf space.
         """
-        s = str(key)
-        return s[:9] + ".." if len(s) > 11 else s
-
+        with self._mem.write_transaction:
+            node = self._search_in_tree(key, self._root_node)
+            try:
+                record = node.get_entry(key)
+                if record.overflow_page:
+                    self._delete_overflow(record.overflow_page)
+                node.remove_entry(key)
+                self._mem.set_node(node)
+                return True
+            except ValueError:
+                return False
 
     def visualize_tree(self, filename="bplustree_visualization"):
-        """
-        Generate Graphviz visualization of B+ Tree.
-        
-        Shows:
-        - Node hierarchy
-        - Parent-child edges
-        - Leaf node linkage (dashed)
-        """
+        """Generate Graphviz visualization adapted for persistent pages."""
         dot = graphviz.Digraph(name="B+Tree", format="png")
         dot.attr(rankdir="TB")
         dot.attr(nodesep="0.15", ranksep="0.5")
@@ -295,257 +170,232 @@ class BPlusTree:
         dot.node_attr.update(fontsize="8", fontname="Helvetica", margin="0.06,0.04")
         dot.edge_attr.update(arrowsize="0.5")
 
-        if self.root:
-            self._add_nodes(dot, self.root)
-            self._add_edges(dot, self.root)
+        with self._mem.read_transaction:
+            if self._root_node:
+                self._add_nodes(dot, self._root_node)
+                self._add_edges(dot, self._root_node)
 
-        # create folder if not exists
         os.makedirs("bplustree_images", exist_ok=True)
-
-        # prepend folder path
         if not filename.startswith("bplustree_images"):
             filename = os.path.join("bplustree_images", filename)
 
         dot.render(filename, cleanup=True)
         return dot
 
-
     def _add_nodes(self, dot, node):
-        """
-        Recursively add nodes to Graphviz structure.
-
-        Leaf - Show key:value pairs
-        Internal - Show only keys
-        """
-        if isinstance(node, LeafNode):
+        """Graphviz node creation mapped to persistent entries."""
+        node_id = str(node.page)
+        
+        if isinstance(node, (LonelyRootNode, LeafNode)):
             items = []
-            
-            for i in range(len(node.keys)):
-                k_str = self._fmt_key(node.keys[i])
-                v_str = str(node.values[i])
+            for entry in node.entries:
+                k_str = str(entry.key)[:9] + ".." if len(str(entry.key)) > 11 else str(entry.key)
                 
-                # For dict values show only the first meaningful field
-                if isinstance(node.values[i], dict):
-                    vals = list(node.values[i].values())
+                raw_bytes = self._get_value_from_record(entry)
+                val_obj = json.loads(raw_bytes.decode('utf-8'))
+                
+                if isinstance(val_obj, dict):
+                    vals = list(val_obj.values())
                     v_str = str(vals[1]) if len(vals) > 1 else str(vals[0])
-                
+                else:
+                    v_str = str(val_obj)
+                    
                 if len(v_str) > 10:
                     v_str = v_str[:9] + ".."
-                
+                    
                 items.append(f"{k_str}:{v_str}")
-            
-            # Cap display at 4 entries to prevent nodes becoming too tall
+                
             if len(items) > 4:
                 items = items[:3] + [f"…+{len(items)-3}"]
+                
+            label = "\\n".join(items) if items else "Empty"
+            dot.node(node_id, label, shape="box", style="filled", fillcolor="lightgreen")
             
-            label = "\\n".join(items)
-            dot.node(
-                str(id(node)), label,
-                shape="box", style="filled", fillcolor="lightgreen"
-            )
-        
         else:
-            label = " | ".join(self._fmt_key(k) for k in node.keys)
-            dot.node(
-                str(id(node)), label,
-                shape="box", style="filled", fillcolor="lightblue"
-            )
+            label = " | ".join(str(entry.key) for entry in node.entries)
+            dot.node(node_id, label, shape="box", style="filled", fillcolor="lightblue")
             
-            for child in node.children:
-                self._add_nodes(dot, child)
-
+            for entry in node.entries:
+                child_node = self._mem.get_node(entry.after)
+                self._add_nodes(dot, child_node)
+            # Handle the 'before' pointer of the first entry
+            if node.entries:
+                first_child = self._mem.get_node(node.entries[0].before)
+                self._add_nodes(dot, first_child)
 
     def _add_edges(self, dot, node):
-        """
-        Add edges between nodes.
-
-        Internal - Parent → child edges
-        Leaf - Dashed edges to represent linked list
-        """
-        if isinstance(node, InternalNode):
-
-            for child in node.children:
-                dot.edge(str(id(node)), str(id(child)))
-                self._add_edges(dot, child)
-
-        elif isinstance(node, LeafNode):
-
-            if node.next:
-                dot.edge(
-                    str(id(node)),
-                    str(id(node.next)),
-                    style="dashed",
-                    color="gray",
-                    constraint="false"
-                )
-       
-                
-    def delete(self, key):
-        """
-        Delete key from tree.
+        """Graphviz edge creation mapped to persistent page pointers."""
+        node_id = str(node.page)
         
-        Handles underflow using:
-        - Borrow from siblings
-        - Merge nodes
-        """
-        if not self.root:
-            return False
+        if isinstance(node, InternalNode) or (isinstance(node, RootNode) and not isinstance(node, LonelyRootNode)):
+            # Link to the 'before' page of the first entry
+            if node.entries:
+                dot.edge(node_id, str(node.entries[0].before))
+            # Link to all 'after' pages
+            for entry in node.entries:
+                dot.edge(node_id, str(entry.after))
+                child_node = self._mem.get_node(entry.after)
+                self._add_edges(dot, child_node)
+            if node.entries:
+                first_child = self._mem.get_node(node.entries[0].before)
+                self._add_edges(dot, first_child)
+                
+        elif isinstance(node, (LonelyRootNode, LeafNode)):
+            if node.next_page:
+                dot.edge(node_id, str(node.next_page), style="dashed", color="gray", constraint="false")
 
-        deleted = self._delete(self.root, key)
+    # ==========================================
+    # ACID INTERNAL IMPLEMENTATIONS 
+    # ==========================================
 
-        if isinstance(self.root, InternalNode) and len(self.root.keys) == 0:
-            self.root = self.root.children[0]
+    def _initialize_empty_tree(self):
+        self._root_node_page = self._mem.next_available_page
+        with self._mem.write_transaction:
+            self._mem.set_node(self.LonelyRootNode(page=self._root_node_page))
+        self._mem.set_metadata(self._root_node_page, self._tree_conf)
 
-        return deleted
+    def _create_partials(self):
+        self.LonelyRootNode = partial(LonelyRootNode, self._tree_conf)
+        self.RootNode = partial(RootNode, self._tree_conf)
+        self.InternalNode = partial(InternalNode, self._tree_conf)
+        self.LeafNode = partial(LeafNode, self._tree_conf)
+        self.OverflowNode = partial(OverflowNode, self._tree_conf)
+        self.Record = partial(Record, self._tree_conf)
+        self.Reference = partial(Reference, self._tree_conf)
 
+    @property
+    def _root_node(self) -> Union['LonelyRootNode', 'RootNode']:
+        root_node = self._mem.get_node(self._root_node_page)
+        return root_node
 
-    def _delete(self, node, key):
-        """
-        Recursive deletion helper.
+    @property
+    def _left_record_node(self) -> Union['LonelyRootNode', 'LeafNode']:
+        node = self._root_node
+        while not isinstance(node, (LonelyRootNode, LeafNode)):
+            node = self._mem.get_node(node.smallest_entry.before)
+        return node
 
-        Leaf:
-        - Directly remove key-value pair
-
-        Internal:
-        - Traverse to correct child
-        - After deletion, check for underflow
-        - Fix using borrow or merge
-        """
-        if isinstance(node, LeafNode):
-
-            for i, k in enumerate(node.keys):
-
-                if k == key:
-                    node.keys.pop(i)
-                    node.values.pop(i)
-
-                    return True
-
-            return False
-
+    def _iter_slice(self, slice_: slice) -> Iterator[Record]:
+        if slice_.start is None:
+            node = self._left_record_node
         else:
-            i = 0
+            node = self._search_in_tree(slice_.start, self._root_node)
 
-            while i < len(node.keys) and key >= node.keys[i]:
-                i += 1
-
-            deleted = self._delete(node.children[i], key)
-            min_keys = math.ceil(self.order / 2) - 1
-
-            if len(node.children[i].keys) < min_keys:
-                self._fill_child(node, i)
-
-            return deleted
-
-
-    def _fill_child(self, node, index):
-        """
-        Fix underflow in child node.
-
-        Strategy:
-        1. Try borrowing from left sibling
-        2. Else try borrowing from right sibling
-        3. Else merge with sibling
-        """
-        min_keys = math.ceil(self.order / 2) - 1
-
-        if index > 0 and len(node.children[index - 1].keys) > min_keys:
-            self._borrow_from_prev(node, index)
-
-        elif index < len(node.children) - 1 and len(node.children[index + 1].keys) > min_keys:
-            self._borrow_from_next(node, index)
-
-        else:
-            if index < len(node.children) - 1:
-                self._merge(node, index)
-
+        while True:
+            for entry in node.entries:
+                if slice_.start is not None and entry.key < slice_.start:
+                    continue
+                if slice_.stop is not None and entry.key >= slice_.stop:
+                    return
+                yield entry
+            if node.next_page:
+                node = self._mem.get_node(node.next_page)
             else:
-                self._merge(node, index - 1)
+                return
 
-
-    def _borrow_from_prev(self, node, index):
-        """
-        Borrow a key from left sibling.
-
-        Leaf:
-        - Move last key from sibling to front of child
-
-        Internal:
-        - Move parent key down
-        - Move sibling key up
-        """
-        child = node.children[index]
-        sibling = node.children[index - 1]
-
-        if isinstance(child, LeafNode):
-            child.keys.insert(0, sibling.keys.pop())
-            child.values.insert(0, sibling.values.pop())
-
-            node.keys[index - 1] = child.keys[0]
-
+    def _search_in_tree(self, key, node) -> 'Node':
+        if isinstance(node, (LonelyRootNode, LeafNode)):
+            return node
+        page = None
+        if key < node.smallest_key:
+            page = node.smallest_entry.before
+        elif node.biggest_key <= key:
+            page = node.biggest_entry.after
         else:
-            child.keys.insert(0, node.keys[index - 1])
-            child.children.insert(0, sibling.children.pop())
+            for ref_a, ref_b in utils.pairwise(node.entries):
+                if ref_a.key <= key < ref_b.key:
+                    page = ref_a.after
+                    break
+        child_node = self._mem.get_node(page)
+        child_node.parent = node
+        return self._search_in_tree(key, child_node)
 
-            node.keys[index - 1] = sibling.keys.pop()
+    def _split_leaf(self, old_node: 'Node'):
+        parent = old_node.parent
+        new_node = self.LeafNode(page=self._mem.next_available_page, next_page=old_node.next_page)
+        new_entries = old_node.split_entries()
+        new_node.entries = new_entries
+        ref = self.Reference(new_node.smallest_key, old_node.page, new_node.page)
 
-
-    def _borrow_from_next(self, node, index):
-        """
-        Borrow a key from right sibling.
-
-        Leaf:
-        - Move first key from sibling to end of child
-
-        Internal:
-        - Move parent key down
-        - Replace with sibling key
-        """
-        child = node.children[index]
-        sibling = node.children[index + 1]
-
-        if isinstance(child, LeafNode):
-            child.keys.append(sibling.keys.pop(0))
-            child.values.append(sibling.values.pop(0))
-
-            node.keys[index] = sibling.keys[0]
-
+        if isinstance(old_node, LonelyRootNode):
+            old_node = old_node.convert_to_leaf()
+            self._create_new_root(ref)
+        elif parent.can_add_entry:
+            parent.insert_entry(ref)
+            self._mem.set_node(parent)
         else:
-            child.keys.append(node.keys[index])
-            child.children.append(sibling.children.pop(0))
+            parent.insert_entry(ref)
+            self._split_parent(parent)
 
-            node.keys[index] = sibling.keys.pop(0)
+        old_node.next_page = new_node.page
+        self._mem.set_node(old_node)
+        self._mem.set_node(new_node)
 
+    def _split_parent(self, old_node: Node):
+        parent = old_node.parent
+        new_node = self.InternalNode(page=self._mem.next_available_page)
+        new_entries = old_node.split_entries()
+        new_node.entries = new_entries
 
-    def _merge(self, node, index):
-        """
-        Merge child at index with its right sibling.
+        ref = new_node.pop_smallest()
+        ref.before = old_node.page
+        ref.after = new_node.page
 
-        Leaf:
-        - Combine keys and values
-        - Fix linked list pointers
-
-        Internal:
-        - Pull parent key down
-        - Merge children
-
-        Also removes key from parent.
-        """
-        left_child = node.children[index]
-        right_child = node.children[index + 1]
-
-        if isinstance(left_child, LeafNode):
-            left_child.keys.extend(right_child.keys)
-            left_child.values.extend(right_child.values)
-            left_child.next = right_child.next
-
-            if right_child.next:
-                right_child.next.prev = left_child
-
+        if isinstance(old_node, RootNode):
+            old_node = old_node.convert_to_internal()
+            self._create_new_root(ref)
+        elif parent.can_add_entry:
+            parent.insert_entry(ref)
+            self._mem.set_node(parent)
         else:
-            left_child.keys.append(node.keys[index])
-            left_child.keys.extend(right_child.keys)
-            left_child.children.extend(right_child.children)
+            parent.insert_entry(ref)
+            self._split_parent(parent)
 
-        node.keys.pop(index)
-        node.children.pop(index + 1)
+        self._mem.set_node(old_node)
+        self._mem.set_node(new_node)
+
+    def _create_new_root(self, reference: Reference):
+        new_root = self.RootNode(page=self._mem.next_available_page)
+        new_root.insert_entry(reference)
+        self._root_node_page = new_root.page
+        self._mem.set_metadata(self._root_node_page, self._tree_conf)
+        self._mem.set_node(new_root)
+
+    def _create_overflow(self, value: bytes) -> int:
+        first_overflow_page = self._mem.next_available_page
+        next_overflow_page = first_overflow_page
+
+        iterator = utils.iter_slice(value, self.OverflowNode().max_payload)
+        for slice_value, is_last in iterator:
+            current_overflow_page = next_overflow_page
+            next_overflow_page = None if is_last else self._mem.next_available_page
+
+            overflow_node = self.OverflowNode(page=current_overflow_page, next_page=next_overflow_page)
+            overflow_node.insert_entry_at_the_end(OpaqueData(data=slice_value))
+            self._mem.set_node(overflow_node)
+
+        return first_overflow_page
+
+    def _traverse_overflow(self, first_overflow_page: int):
+        next_overflow_page = first_overflow_page
+        while True:
+            overflow_node = self._mem.get_node(next_overflow_page)
+            yield overflow_node
+            next_overflow_page = overflow_node.next_page
+            if next_overflow_page is None:
+                break
+
+    def _read_from_overflow(self, first_overflow_page: int) -> bytes:
+        rv = bytearray()
+        for overflow_node in self._traverse_overflow(first_overflow_page):
+            rv.extend(overflow_node.smallest_entry.data)
+        return bytes(rv)
+
+    def _delete_overflow(self, first_overflow_page: int):
+        for overflow_node in self._traverse_overflow(first_overflow_page):
+            self._mem.del_node(overflow_node)
+
+    def _get_value_from_record(self, record: Record) -> bytes:
+        if record.value is not None:
+            return record.value
+        return self._read_from_overflow(record.overflow_page)
