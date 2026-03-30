@@ -1,9 +1,0 @@
-pip freeze > .\Assignment_2\Module_B\cab-sharing-app\backend\requirements.txt
-pip install -r .\Assignment_2\Module_B\cab-sharing-app\backend\requirements.txt
-sudo service mysql start -> Start Mysql service in Ubuntu (WSL)
-uvicorn main:app --reload  -> Run fastapi app from main.py
-
-
-Changes Done:
-Updated Logout function, added user to log who logged out.
-
