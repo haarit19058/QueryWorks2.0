@@ -1,0 +1,42 @@
+{"type": "BEGIN", "tid": "T1774896124469_1", "payload": {}, "lsn": 1}
+{"type": "OP", "tid": "T1774896124469_1", "payload": {"table": "ActiveRides", "key": "TXN001", "op": "INSERT", "old": null, "new": {"RideID": "TXN001", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Airport", "VehicleType": "Bike", "StartTime": "2026-03-31 08:00:00", "EstimatedTime": 40, "FemaleOnly": 0}}, "lsn": 2}
+{"type": "ABORT", "tid": "T1774896124469_1", "payload": {}, "lsn": 3}
+{"type": "BEGIN", "tid": "T1774896124492_2", "payload": {}, "lsn": 4}
+{"type": "ABORT", "tid": "T1774896124492_2", "payload": {}, "lsn": 5}
+{"type": "BEGIN", "tid": "T1774896124511_3", "payload": {}, "lsn": 6}
+{"type": "BEGIN", "tid": "T1774896124514_4", "payload": {}, "lsn": 7}
+{"type": "COMMIT", "tid": "T1774896124511_3", "payload": {}, "lsn": 8}
+{"type": "ABORT", "tid": "T1774896124514_4", "payload": {}, "lsn": 9}
+{"type": "BEGIN", "tid": "T1774896124538_5", "payload": {}, "lsn": 10}
+{"type": "OP", "tid": "T1774896124538_5", "payload": {"table": "ActiveRides", "key": "DURABLE1", "op": "INSERT", "old": null, "new": {"RideID": "DURABLE1", "AdminID": 28498439, "AvailableSeats": 2, "PassengerCount": 0, "Source": "Gift City", "Destination": "IITGN", "VehicleType": "Auto Rickshaw", "StartTime": "2026-03-31 12:00:00", "EstimatedTime": 40, "FemaleOnly": 0}}, "lsn": 11}
+{"type": "COMMIT", "tid": "T1774896124538_5", "payload": {}, "lsn": 12}
+{"type": "BEGIN", "tid": "T1774896124567_6", "payload": {}, "lsn": 13}
+{"type": "OP", "tid": "T1774896124567_6", "payload": {"table": "ActiveRides", "key": "CHK0", "op": "INSERT", "old": null, "new": {"RideID": "CHK0", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 00:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 14}
+{"type": "COMMIT", "tid": "T1774896124567_6", "payload": {}, "lsn": 15}
+{"type": "BEGIN", "tid": "T1774896124572_7", "payload": {}, "lsn": 16}
+{"type": "OP", "tid": "T1774896124572_7", "payload": {"table": "ActiveRides", "key": "CHK1", "op": "INSERT", "old": null, "new": {"RideID": "CHK1", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 01:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 17}
+{"type": "COMMIT", "tid": "T1774896124572_7", "payload": {}, "lsn": 18}
+{"type": "BEGIN", "tid": "T1774896124577_8", "payload": {}, "lsn": 19}
+{"type": "OP", "tid": "T1774896124577_8", "payload": {"table": "ActiveRides", "key": "CHK2", "op": "INSERT", "old": null, "new": {"RideID": "CHK2", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 02:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 20}
+{"type": "COMMIT", "tid": "T1774896124577_8", "payload": {}, "lsn": 21}
+{"type": "BEGIN", "tid": "T1774896124581_9", "payload": {}, "lsn": 22}
+{"type": "OP", "tid": "T1774896124581_9", "payload": {"table": "ActiveRides", "key": "CHK3", "op": "INSERT", "old": null, "new": {"RideID": "CHK3", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 03:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 23}
+{"type": "COMMIT", "tid": "T1774896124581_9", "payload": {}, "lsn": 24}
+{"type": "BEGIN", "tid": "T1774896124587_10", "payload": {}, "lsn": 25}
+{"type": "OP", "tid": "T1774896124587_10", "payload": {"table": "ActiveRides", "key": "CHK4", "op": "INSERT", "old": null, "new": {"RideID": "CHK4", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 04:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 26}
+{"type": "COMMIT", "tid": "T1774896124587_10", "payload": {}, "lsn": 27}
+{"type": "BEGIN", "tid": "T1774896124593_11", "payload": {}, "lsn": 28}
+{"type": "OP", "tid": "T1774896124593_11", "payload": {"table": "ActiveRides", "key": "CHK5", "op": "INSERT", "old": null, "new": {"RideID": "CHK5", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 05:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 29}
+{"type": "COMMIT", "tid": "T1774896124593_11", "payload": {}, "lsn": 30}
+{"type": "BEGIN", "tid": "T1774896124597_12", "payload": {}, "lsn": 31}
+{"type": "OP", "tid": "T1774896124597_12", "payload": {"table": "ActiveRides", "key": "CHK6", "op": "INSERT", "old": null, "new": {"RideID": "CHK6", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 06:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 32}
+{"type": "COMMIT", "tid": "T1774896124597_12", "payload": {}, "lsn": 33}
+{"type": "BEGIN", "tid": "T1774896124601_13", "payload": {}, "lsn": 34}
+{"type": "OP", "tid": "T1774896124601_13", "payload": {"table": "ActiveRides", "key": "CHK7", "op": "INSERT", "old": null, "new": {"RideID": "CHK7", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 07:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 35}
+{"type": "COMMIT", "tid": "T1774896124601_13", "payload": {}, "lsn": 36}
+{"type": "BEGIN", "tid": "T1774896124608_14", "payload": {}, "lsn": 37}
+{"type": "OP", "tid": "T1774896124608_14", "payload": {"table": "ActiveRides", "key": "CHK8", "op": "INSERT", "old": null, "new": {"RideID": "CHK8", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 08:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 38}
+{"type": "COMMIT", "tid": "T1774896124608_14", "payload": {}, "lsn": 39}
+{"type": "BEGIN", "tid": "T1774896124614_15", "payload": {}, "lsn": 40}
+{"type": "OP", "tid": "T1774896124614_15", "payload": {"table": "ActiveRides", "key": "CHK9", "op": "INSERT", "old": null, "new": {"RideID": "CHK9", "AdminID": 28498438, "AvailableSeats": 1, "PassengerCount": 0, "Source": "IITGN", "Destination": "Gift City", "VehicleType": "Sedan Cab", "StartTime": "2026-03-31 09:00:00", "EstimatedTime": 30, "FemaleOnly": 0}}, "lsn": 41}
+{"type": "COMMIT", "tid": "T1774896124614_15", "payload": {}, "lsn": 42}
