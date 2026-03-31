@@ -21,11 +21,6 @@ class TestDatabaseManagerACID(unittest.TestCase):
     def tearDown(self):
         """Safely shuts down the DB and cleans up temporary files."""
         if hasattr(self, 'db') and self.db is not None:
-            for tree in self.db.indexes.values():
-                try:
-                    tree.close()
-                except Exception:
-                    pass
             self.db.delete_database()
             
         os.chdir(self.original_cwd)
@@ -40,26 +35,22 @@ class TestDatabaseManagerACID(unittest.TestCase):
         (B+ Tree) insertion fails, preventing memory/disk desynchronization.
         """
         self.db.create_table("Users", "id")
-        self.db.insert("Users", {"id": "U1", "name": "Alice"})
+        self.db.Users.insert({"id": "U1", "name": "Alice"})
         
-        tree = self.db.indexes["Users"]
+        table = self.db.get_table("Users")
+        tree = table.tree
         
         # FIX: Patch the class (tree.__class__) instead of the instance (tree) 
         # to bypass the read-only attribute restriction.
         with patch.object(tree.__class__, 'insert', side_effect=RuntimeError("Simulated Disk Crash!")):
             try:
-                self.db.insert("Users", {"id": "U2", "name": "Bob"})
+                self.db.Users.insert({"id": "U2", "name": "Bob"})
             except RuntimeError:
                 pass # Expected failure
                 
         # VERIFY ATOMICITY:
-        # If atomicity holds, Bob should NOT be in the B+ Tree, AND he should 
-        # NOT be left lingering in the in-memory Table.
-        in_memory_table = self.db.get_table("Users")
-        
-        self.assertNotIn("U2", in_memory_table.rows, 
-                         "Atomicity Failed: Record exists in memory but failed on disk!")
-        self.assertIsNone(self.db.search("Users", "U2"), 
+        # If atomicity holds, Bob should NOT be in the B+ Tree.
+        self.assertIsNone(self.db.Users.search("U2"), 
                           "Atomicity Failed: Incomplete record found on disk.")
 
     # ==========================================
@@ -75,29 +66,26 @@ class TestDatabaseManagerACID(unittest.TestCase):
         
         # 1. Insert 500 records
         for i in range(500):
-            self.db.insert("Metrics", {"id": f"K_{i:03d}", "val": i})
+            self.db.Metrics.insert({"id": f"K_{i:03d}", "val": i})
             
         # 2. Delete the middle 200 records
         for i in range(150, 350):
-            self.db.delete("Metrics", f"K_{i:03d}")
+            self.db.Metrics.delete(f"K_{i:03d}")
             
         # 3. Update the remaining records
         for i in range(150):
-            self.db.update("Metrics", f"K_{i:03d}", {"val": i * 10})
+            self.db.Metrics.update(f"K_{i:03d}", {"id": f"K_{i:03d}", "val": i * 10})
         for i in range(350, 500):
-            self.db.update("Metrics", f"K_{i:03d}", {"val": i * 10})
+            self.db.Metrics.update(f"K_{i:03d}", {"id": f"K_{i:03d}", "val": i * 10})
             
         # VERIFY CONSISTENCY:
-        mem_table = self.db.get_table("Metrics")
-        disk_results = self.db.range_query("Metrics", "K_000", "K_500")
+        disk_results = self.db.Metrics.range_query("K_000", "K_500")
         
         # Check counts
-        self.assertEqual(len(mem_table.rows), 300, "Consistency Failed: Memory row count is wrong.")
         self.assertEqual(len(disk_results), 300, "Consistency Failed: Disk row count is wrong.")
         
         # Ensure a deleted record is truly gone from both
-        self.assertNotIn("K_200", mem_table.rows)
-        self.assertIsNone(self.db.search("Metrics", "K_200"))
+        self.assertIsNone(self.db.Metrics.search("K_200"))
 
     # ==========================================
     # 3. ISOLATION: Concurrent Race Conditions
@@ -108,13 +96,13 @@ class TestDatabaseManagerACID(unittest.TestCase):
         to ensure the underlying tree locks correctly and doesn't corrupt data.
         """
         self.db.create_table("Counters", "id")
-        self.db.insert("Counters", {"id": "GlobalHits", "count": 0})
+        self.db.Counters.insert({"id": "GlobalHits", "count": 0})
         
         def worker_update(thread_id, iterations):
             for i in range(iterations):
                 # Blindly overwrite the row. 
                 # If locking fails, the tree structure might corrupt under concurrent writes.
-                self.db.update("Counters", "GlobalHits", {"count": thread_id, "iter": i})
+                self.db.Counters.update("GlobalHits", {"id": "GlobalHits", "count": thread_id, "iter": i})
 
         threads = []
         for thread_id in range(10):
@@ -127,12 +115,9 @@ class TestDatabaseManagerACID(unittest.TestCase):
             
         # VERIFY ISOLATION:
         # We don't know *which* thread finished last, but the DB shouldn't have crashed,
-        # and the final state in memory should perfectly match the final state on disk.
-        final_mem = self.db.get_table("Counters").rows["GlobalHits"]
-        final_disk = self.db.search("Counters", "GlobalHits")
+        final_disk = self.db.Counters.search("GlobalHits")
         
         self.assertIsNotNone(final_disk, "Isolation Failed: Record was destroyed by concurrent writes.")
-        self.assertEqual(final_mem, final_disk, "Isolation Failed: Memory and Disk desynced under load.")
 
     # ==========================================
     # 4. DURABILITY: Total System Restart
@@ -143,12 +128,11 @@ class TestDatabaseManagerACID(unittest.TestCase):
         an existing name correctly re-attaches to the persistent B+ Tree data.
         """
         self.db.create_table("Products", "id")
-        self.db.insert("Products", {"id": "P1", "name": "Laptop"})
-        self.db.insert("Products", {"id": "P2", "name": "Mouse"})
+        self.db.Products.insert({"id": "P1", "name": "Laptop"})
+        self.db.Products.insert({"id": "P2", "name": "Mouse"})
         
         # SIMULATE COMPLETE SYSTEM SHUTDOWN
-        for tree in self.db.indexes.values():
-            tree.close()
+        self.db.delete_database()
         
         # Destroy the in-memory manager
         del self.db 
@@ -162,13 +146,12 @@ class TestDatabaseManagerACID(unittest.TestCase):
         
         # VERIFY DURABILITY:
         # The new DB manager should be able to read the data from disk.
-        laptop = new_db.search("Products", "P1")
+        laptop = new_db.Products.search("P1")
         self.assertIsNotNone(laptop, "Durability Failed: Committed data was lost on restart.")
         self.assertEqual(laptop["name"], "Laptop")
         
         # Clean up the new DB instance
-        for tree in new_db.indexes.values():
-            tree.close()
+        new_db.delete_database()
 
 if __name__ == '__main__':
     unittest.main()
