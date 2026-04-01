@@ -16,13 +16,8 @@ export const Login: React.FC = () => {
       setLoading(true);
       setError('');
       try {
-        // POST /api/auth/google  { token: "..." }
-        // Backend verifies with Google, checks Members table by email
-        // Returns either:
-        //   { isNewUser: false, ...User fields }   → already registered
-        //   { isNewUser: true, email, name, picture } → needs signup
         const result = await loginWithGoogle(tokenResponse.code);
-        console.log(result);
+        // console.log(result);
 
         if (result.isNewUser) {
           // Pass prefilled data to signup via location state

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { Check, X, Clock, MapPin, Users, Car } from 'lucide-react';
-
+import { Check, X, Clock, MapPin, Users, Car, MessageSquare } from 'lucide-react';
+import { ChatDrawer } from '../components/ChatDrawer';
 
 // ── Main component ────────────────────────────────────────────────────────────
 export const YourRides: React.FC = () => {
@@ -13,6 +13,7 @@ export const YourRides: React.FC = () => {
   const [platform, setPlatform] = useState('');
   const [cancellingRide, setCancellingRide] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [selectedRide, setSelectedRide] = useState<any | null>(null);
 
   const myHostedRides = rides.filter(r => r.AdminID === currentUser?.MemberID);
   const myJoinedRequests = myRequests.filter(r => r.PassengerID === currentUser?.MemberID);
@@ -140,6 +141,12 @@ export const YourRides: React.FC = () => {
                       </div>
                     ) : (
                       <div className="flex gap-2 self-start md:self-center">
+                        <button
+                          onClick={() => setSelectedRide(ride)}
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1"
+                        >
+                          <MessageSquare className="w-4 h-4" /> Chat
+                        </button>
                         <button
                           onClick={() => setCompletingRide(ride.RideID)}
                           className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
@@ -302,18 +309,26 @@ export const YourRides: React.FC = () => {
                       </div>
                     </div>
 
-                    <div
-                      className="flex items-center gap-2 pt-3 border-t border-slate-50 cursor-pointer group"
-                      onClick={() => navigate(`/profile/${ride.AdminID}`)}
-                    >
-                      <img
-                        src={ride.ProfileImageURL || `https://picsum.photos/seed/${ride.AdminID}/60`}
-                        className="w-7 h-7 rounded-full object-cover border border-slate-100"
-                        alt={ride.HostName}
-                      />
-                      <span className="text-xs text-slate-500 group-hover:text-emerald-600 transition-colors">
-                        Hosted by <strong>{ride.HostName}</strong>
-                      </span>
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                      <div
+                        className="flex items-center gap-2 cursor-pointer group"
+                        onClick={() => navigate(`/profile/${ride.AdminID}`)}
+                      >
+                        <img
+                          src={ride.ProfileImageURL || `https://picsum.photos/seed/${ride.AdminID}/60`}
+                          className="w-7 h-7 rounded-full object-cover border border-slate-100"
+                          alt={ride.HostName}
+                        />
+                        <span className="text-xs text-slate-500 group-hover:text-emerald-600 transition-colors">
+                          Hosted by <strong>{ride.HostName}</strong>
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedRide(ride)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl transition-all text-xs"
+                      >
+                        <MessageSquare className="w-4 h-4" /> Chat
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -323,6 +338,12 @@ export const YourRides: React.FC = () => {
         )}
       </section>
 
+      {selectedRide && (
+        <ChatDrawer
+          ride={selectedRide}
+          onClose={() => setSelectedRide(null)}
+        />
+      )}
     </div>
   );
 };

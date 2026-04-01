@@ -68,6 +68,8 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
     );
   }
 
+  console.log(currentUser.Gender);
+
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-80px)] overflow-hidden">
       {/* Form Sidebar */}
@@ -92,8 +94,8 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-7 gap-4">
+              <div className="col-span-4 space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-emerald-500" /> Select Date & Time
                 </label>
@@ -107,16 +109,16 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                     required
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-slate-900 font-medium cursor-pointer transition-all hover:border-emerald-300"
+                    className="w-full px-4 py-3 pr-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-slate-900 font-medium cursor-pointer transition-all hover:border-emerald-300 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                   <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                    <Clock className="w-4 h-4 text-slate-400 group-hover:text-emerald-500" />
+                    <Clock className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
                   </div>
                 </div>
               </div>
 
               {/* Vehicle Type */}
-              <div className="space-y-2">
+              <div className="col-span-3 space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">
                   Vehicle Type
                 </label>
@@ -130,7 +132,9 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               {/* Estimated Time */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -148,17 +152,16 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
               </div>
 
               {/* Female Only */}
-              {currentUser?.Gender === 'Female' && (
+              {currentUser?.Gender === 'F' && (
                 <div
                   onClick={() => setFemaleOnly(!femaleOnly)}
                   className={`flex items-center justify-between px-5 py-4 rounded-2xl border-2 cursor-pointer transition-all select-none ${femaleOnly
-                      ? 'bg-pink-50 border-pink-300 text-pink-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-500'
+                    ? 'bg-pink-50 border-pink-300 text-pink-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-500'
                     }`}
                 >
                   <div>
                     <p className="font-semibold text-sm">Female Only Ride ♀</p>
-                    <p className="text-xs mt-0.5 opacity-70">Only female students can request to join</p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${femaleOnly ? 'bg-pink-500 border-pink-500' : 'border-slate-300'
                     }`}>
@@ -167,7 +170,7 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                 </div>
               )}
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <Users className="w-4 h-4 text-slate-400" /> Seats
                 </label>
@@ -183,7 +186,7 @@ export const AddRide: React.FC<AddRideProps> = ({ onSuccess }) => {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="pt-4">
