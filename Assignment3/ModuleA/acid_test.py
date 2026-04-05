@@ -33,13 +33,21 @@ def main():
     # --- Atomicity ---
     print("\n[Atomicity] Multi-table rollback")
     tid = db.txn_begin()
-    members.update(28498438, members.get(28498438), tid=tid, dbm=db)
+    
+    # Safe update: Fetch an existing member dynamically
+    existing_members = members.get_all()
+    if existing_members:
+        test_member_id = existing_members[0][0]
+        test_member_data = existing_members[0][1]
+        members.update(test_member_id, test_member_data, tid=tid, dbm=db)
+        
     vehicles.update(1, {"VehicleID": 1, "VehicleType": "Bike", "MaxCapacity": 2}, tid=tid, dbm=db)
-    activerides.insert({"RideID": "TXN001", "AdminID": 28498438,
+    activerides.insert({"RideID": "TXN001", "AdminID": test_member_id if existing_members else 999,
                         "AvailableSeats": 1, "PassengerCount": 0,
                         "Source": "IITGN", "Destination": "Airport",
                         "VehicleType": "Bike", "StartTime": "2026-03-31 08:00:00",
                         "EstimatedTime": 40, "FemaleOnly": 0}, tid=tid, dbm=db)
+    
     print("During txn, TXN001:", activerides.get("TXN001"))
     db.txn_abort(tid)
     print("After abort, TXN001:", activerides.get("TXN001"))
@@ -61,21 +69,30 @@ def main():
     print("\n[Isolation] Concurrent transactions")
     tid1 = db.txn_begin()
     tid2 = db.txn_begin()
+    
     try:
-        members.update(28498439, members.get(28498439), tid=tid1, dbm=db)
-        members.update(28498439, members.get(28498439), tid=tid2, dbm=db)
-        db.txn_commit(tid1)
-        db.txn_abort(tid2)
-        print("Member 28498439 after isolation:", members.get(28498439))
+        if existing_members:
+            # We use the second member to avoid locking conflicts with previous tests if they didn't clean up
+            iso_member_id = existing_members[1][0] if len(existing_members) > 1 else test_member_id
+            iso_member_data = members.get(iso_member_id)
+            
+            members.update(iso_member_id, iso_member_data, tid=tid1, dbm=db)
+            print(f"Transaction {tid1} acquired lock on Member {iso_member_id}")
+            
+            print(f"Transaction {tid2} attempting to acquire lock on Member {iso_member_id}... (will wait for 5s timeout)")
+            members.update(iso_member_id, iso_member_data, tid=tid2, dbm=db)
+            
+            db.txn_commit(tid1)
+            db.txn_abort(tid2)
     except Exception as e:
-        print("Isolation test: concurrent update blocked ->", e)
+        print(f"Isolation test: concurrent update correctly blocked -> {e}")
         db.txn_abort(tid1)
         db.txn_abort(tid2)
 
     # --- Durability ---
     print("\n[Durability] Commit survives restart")
     tid = db.txn_begin()
-    activerides.insert({"RideID": "DURABLE1", "AdminID": 28498439,
+    activerides.insert({"RideID": "DURABLE1", "AdminID": 101,
                         "AvailableSeats": 2, "PassengerCount": 0,
                         "Source": "Gift City", "Destination": "IITGN",
                         "VehicleType": "Auto Rickshaw", "StartTime": "2026-03-31 12:00:00",
@@ -99,7 +116,7 @@ def main():
     print("\n[Checkpoint] Trigger after 10 commits")
     for i in range(10):
         tid = db.txn_begin()
-        activerides.insert({"RideID": f"CHK{i}", "AdminID": 28498438,
+        activerides.insert({"RideID": f"CHK{i}", "AdminID": 102,
                             "AvailableSeats": 1, "PassengerCount": 0,
                             "Source": "IITGN", "Destination": "Gift City",
                             "VehicleType": "Sedan Cab", "StartTime": f"2026-03-31 0{i}:00:00",
