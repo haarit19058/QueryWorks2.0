@@ -37,6 +37,7 @@ ModuleA
 ModuleB/app/backend/
 ├── admin.json
 ├── API.md # API documentation
+├── main.py # Main server
 ├── failure_test.py # failure test file
 ├── locustfile.py # stress test file
 ├── my_test_exceptions.csv
