@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request, status, 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.exc import SQLAlchemyError
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -20,14 +20,37 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 import time
+import hashlib
 load_dotenv()
 
-DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URL") # Update to your MySQL connection string
+SHARD0_URL = os.environ.get("SHARD0_DATABASE_URL")
+SHARD1_URL = os.environ.get("SHARD1_DATABASE_URL")
+SHARD2_URL = os.environ.get("SHARD2_DATABASE_URL")
+
 GOOGLE_CLIENT_ID = os.environ.get("CLIENT_ID")
 JWT_SECRET = os.environ.get("JWT_SECRET_KEY", "fallback-secret-key")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 ALGORITHM = "HS256"
 ADMIN_FILE = "admin.json"
+RIDE_DIRECTORY_FILE = "ride_shard_map.json"
+
+def get_ride_shard_map() -> dict:
+    if not os.path.exists(RIDE_DIRECTORY_FILE):
+        return {}
+    with open(RIDE_DIRECTORY_FILE, "r") as f:
+        return json.load(f)
+
+def update_ride_directory(ride_id: str, shard_id: int):
+    mapping = get_ride_shard_map()
+    mapping[ride_id] = shard_id
+    with open(RIDE_DIRECTORY_FILE, "w") as f:
+        json.dump(mapping, f)
+
+def get_shard_for_ride(ride_id: str) -> int:
+    mapping = get_ride_shard_map()
+    return mapping.get(ride_id, 0) # Fallback to 0 if not found
+
+GLOBAL_NEXT_MEMBER_ID = 29498490
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(os.path.dirname(CURRENT_DIR))
@@ -65,11 +88,26 @@ logging.getLogger("fastapi").handlers = [console_handler, file_handler]
 logging.getLogger("fastapi").setLevel(logging.ERROR)
 
 # --- Database Setup ---
-engine = create_engine(DATABASE_URL, pool_size=50, max_overflow=50, pool_timeout=30)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine0 = create_engine(SHARD0_URL, pool_size=50, max_overflow=50, pool_timeout=30)
+engine1 = create_engine(SHARD1_URL, pool_size=50, max_overflow=50, pool_timeout=30)
+engine2 = create_engine(SHARD2_URL, pool_size=50, max_overflow=50, pool_timeout=30)
 
+SessionLocal0 = sessionmaker(autocommit=False, autoflush=False, bind=engine0)
+SessionLocal1 = sessionmaker(autocommit=False, autoflush=False, bind=engine1)
+SessionLocal2 = sessionmaker(autocommit=False, autoflush=False, bind=engine2)
+
+def get_db_shards():
+    db0, db1, db2 = SessionLocal0(), SessionLocal1(), SessionLocal2()
+    try:
+        yield {0: db0, 1: db1, 2: db2}
+    finally:
+        db0.close()
+        db1.close()
+        db2.close()
+
+# Keeping a fallback get_db to prevent unmigrated routes from completely breaking
 def get_db():
-    db = SessionLocal()
+    db = SessionLocal0()
     try:
         yield db
     finally:
@@ -90,11 +128,18 @@ app.add_middleware(
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     # Extract just the specific database error text
     error_msg = str(getattr(exc, "orig", exc))
-    logger.error(f"Database error: {error_msg}")
+    # We can inspect the exception or request to potentially identify the shard, 
+    # but the simplest way is to include shard info in the logging where the error occurs if possible.
+    logger.error(f"Database error: {error_msg} (Request: {request.url.path})")
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": error_msg}
     )
+
+def get_shard_id(member_id: int) -> int:
+    """Computes the shard ID using MD5 hash of the MemberID modulo 3"""
+    hash_digest = hashlib.md5(str(member_id).encode()).hexdigest()
+    return int(hash_digest, 16) % 3
 
 # --- Pydantic Schemas ---
 class GoogleLoginData(BaseModel):
@@ -140,13 +185,16 @@ class UpdateRideStatusData(BaseModel):
     price: int | None = None
 
 # --- Auth Middleware ---
-def get_current_user(request: Request, db: Session = Depends(get_db),
+def get_current_user(request: Request, shards: dict = Depends(get_db_shards),
                       x_test_user_id: Annotated[str | None, Header(alias="X-Test-User-ID")] = None):
     # --- BYPASS AUTH FOR TESTING ---
     test_user_id = request.headers.get("X-Test-User-ID")
     if test_user_id:
+        shard_id = int(test_user_id) % 3
+        db = shards[shard_id]
         user = db.query(Member).filter(Member.MemberID == int(test_user_id)).first()
         if user:
+            request.state.db = db
             return user
     # -------------------------------
     
@@ -159,6 +207,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db),
         
         # FIX: Cast the string subject back to an integer for the database
         member_id = int(payload.get("sub")) 
+        
+        shard_id = member_id % 3
+        db = shards[shard_id]
 
         logger.info(f"* DB SELECT: Checking Member table for MemberID: {member_id}")
         user = db.query(Member).filter(Member.MemberID == member_id).first()
@@ -244,17 +295,36 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
         raise HTTPException(status_code=400, detail="Invalid Google token")
 
 @app.post("/auth/signup")
-def signup(data: SignupData, response: Response, db: Session = Depends(get_db)):
+def signup(data: SignupData, response: Response, shards: dict = Depends(get_db_shards)):
+    global GLOBAL_NEXT_MEMBER_ID
+    
+    # 1. Initialize the global counter on first signup (or after restart) if needed
+    if GLOBAL_NEXT_MEMBER_ID is None:
+        max_id = 0
+        for shard_id, db in shards.items():
+            curr_max = db.query(func.max(Member.MemberID)).scalar()
+            if curr_max and curr_max > max_id:
+                max_id = curr_max
+        GLOBAL_NEXT_MEMBER_ID = max_id + 1
+            
+    next_id = GLOBAL_NEXT_MEMBER_ID
+    GLOBAL_NEXT_MEMBER_ID += 1
+    
+    shard_target = next_id % 3
+    target_db = shards[shard_target]
+
     new_user = Member(
+        MemberID=next_id, # Explicitly assign to enforce global sequence across shards
         GoogleSub=data.google_sub, FullName=data.FullName, Email=data.Email,
         ProfileImageURL=data.ProfileImageURL, Programme=data.Programme,
         Branch=data.Branch, BatchYear=data.BatchYear, ContactNumber=data.ContactNumber,
         Gender=data.Gender, Age=data.Age
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    logger.info(f"* DB INSERT: Added new Member into database (Email: {data.Email}, ID: {new_user.MemberID})")
+    target_db.add(new_user)
+    target_db.commit()
+    target_db.refresh(new_user)
+    
+    logger.info(f"* DB INSERT: Added new Member into database (Email: {data.Email}, ID: {new_user.MemberID}) ON SHARD {shard_target}")
     create_cookie(response, new_user.MemberID)
     logger.info(f"New user signed up successfully: {new_user.Email} (ID: {new_user.MemberID})")
     return {"user": new_user}
@@ -270,57 +340,72 @@ def logout(response: Response):
 
 # --- Routes: Rides ---
 @app.get("/rides")
-def get_rides(db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
-    logger.info(f"Fetching all rides for UserID: {current_user.MemberID}")
-
-    logger.info("* DB SELECT: Fetch ActiveRide + Member (JOIN)")
-    rides = (
-        db.query(ActiveRide, Member)
-        .join(Member, ActiveRide.AdminID == Member.MemberID)
-        .all()
-    )
-    logger.info(f"Fetched {len(rides)} rides")
-    ride_ids = [r.ActiveRide.RideID for r in rides]
-
-    passengers_data = (
-        db.query(RidePassengerMap.RideID, Member.MemberID, Member.FullName, Member.ProfileImageURL)
-        .join(Member, Member.MemberID == RidePassengerMap.PassengerID)
-        .filter(RidePassengerMap.RideID.in_(ride_ids))
-        .all()
-    )
-
-    # group passengers
-    passenger_map = {}
-    for p in passengers_data:
-        passenger_map.setdefault(p.RideID, []).append({
-            "MemberID": p.MemberID,
-            "FullName": p.FullName,
-            "ProfileImageURL": p.ProfileImageURL
-        })
+def get_rides(shards: dict = Depends(get_db_shards), current_user: Member = Depends(get_current_user)):
+    logger.info(f"Fetching all rides across shards for UserID: {current_user.MemberID}")
 
     result = []
-    for ride, host in rides:
-        result.append({
-            "RideID": ride.RideID,
-            "AdminID": ride.AdminID,
-            "HostName": host.FullName if host else "Unknown",
-            "ProfileImageURL": host.ProfileImageURL if host else "",
-            "AvailableSeats": ride.AvailableSeats,
-            "PassengerCount": ride.PassengerCount,
-            "Source": ride.Source,
-            "Destination": ride.Destination,
-            "VehicleType": ride.VehicleType,
-            "StartTime": ride.StartTime.isoformat(),
-            "EstimatedTime": ride.EstimatedTime,
-            "FemaleOnly": ride.FemaleOnly,
-            "Status": ride.Status,
-            "Passengers": passenger_map.get(ride.RideID, [])
-        })
+    
+    # SCATTER: Query all 3 shards
+    for shard_num, db in shards.items():
+        try:
+            logger.info(f"* DB SELECT: Fetch ActiveRide + Member (JOIN) from Shard {shard_num}")
+            rides = (
+                db.query(ActiveRide, Member)
+                .join(Member, ActiveRide.AdminID == Member.MemberID)
+                .all()
+            )
+            logger.info(f"Fetched {len(rides)} rides from Shard {shard_num}")
+            
+            ride_ids = [r.ActiveRide.RideID for r in rides]
+            if not ride_ids:
+                continue
+
+            passengers_data = (
+                db.query(RidePassengerMap.RideID, Member.MemberID, Member.FullName, Member.ProfileImageURL)
+                .join(Member, Member.MemberID == RidePassengerMap.PassengerID)
+                .filter(RidePassengerMap.RideID.in_(ride_ids))
+                .all()
+            )
+
+            # group passengers
+            passenger_map = {}
+            for p in passengers_data:
+                passenger_map.setdefault(p.RideID, []).append({
+                    "MemberID": p.MemberID,
+                    "FullName": p.FullName,
+                    "ProfileImageURL": p.ProfileImageURL
+                })
+
+            for ride, host in rides:
+                result.append({
+                    "RideID": ride.RideID,
+                    "AdminID": ride.AdminID,
+                    "HostName": host.FullName if host else "Unknown",
+                    "ProfileImageURL": host.ProfileImageURL if host else "",
+                    "AvailableSeats": ride.AvailableSeats,
+                    "PassengerCount": ride.PassengerCount,
+                    "Source": ride.Source,
+                    "Destination": ride.Destination,
+                    "VehicleType": ride.VehicleType,
+                    "StartTime": ride.StartTime.isoformat(),
+                    "EstimatedTime": ride.EstimatedTime,
+                    "FemaleOnly": ride.FemaleOnly,
+                    "Status": ride.Status,
+                    "Passengers": passenger_map.get(ride.RideID, [])
+                })
+        except SQLAlchemyError as e:
+            # FAULT TOLERANCE: Ignore current shard
+            logger.error(f"Shard {shard_num} failed during GET /rides: {str(e)}")
+            continue
 
     return result
 
 @app.post("/rides")
-def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+def create_ride(data: RideCreateData, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    # 1. Select user's shard
+    shard_id = user.MemberID % 3
+    db = shards[shard_id]
+    
     # Identify max capacity from vehicle type
     # print(data.VehicleType)
     logger.info(f"Create ride request by UserID: {user.MemberID}")
@@ -356,15 +441,20 @@ def create_ride(data: RideCreateData, db: Session = Depends(get_db), user: Membe
 
     db.commit()
     logger.info(f"Ride successfully created → RideID: {new_ride.RideID}")
+    
+    update_ride_directory(new_ride.RideID, shard_id)
     return new_ride
 
 @app.patch("/rides/{ride_id}/status")
 def update_ride_status(
     ride_id: str,
     data: UpdateRideStatusData,
-    db: Session = Depends(get_db),
+    shards: dict = Depends(get_db_shards),
     user: Member = Depends(get_current_user)
 ):
+    shard_id = get_shard_for_ride(ride_id)
+    db = shards[shard_id]
+
     logger.info(f"* DB SELECT: Fetching ActiveRide with RideID: {ride_id} for AdminID: {user.MemberID}")
     ride = db.query(ActiveRide).filter(
         ActiveRide.RideID == ride_id,
@@ -394,33 +484,33 @@ def update_ride_status(
             RidePassengerMap.RideID == ride_id,
             RidePassengerMap.IsConfirmed == True
         ).all()
-        passenger_ids = [p.PassengerID for p in passengers]
-
-        stats = {
-            s.MemberID: s
-            for s in db.query(MemberStat)
-            .filter(MemberStat.MemberID.in_(passenger_ids))
-            .all()
-        }
-
+        
+        # When compiling final passenger stats, passengers might exist in different shards originally, 
+        # but the MemberStat map is generated in the Host's shard here for local ride processing.
+        # Alternatively, we should update each passenger's MemberStat globally.
         for p in passengers:
-            stat = stats.get(p.PassengerID)
+            passenger_shard = shards[p.PassengerID % 3]
+            try:
+                stat = passenger_shard.query(MemberStat).filter(MemberStat.MemberID == p.PassengerID).first()
 
-            if not stat:
-                stat = MemberStat(
-                    MemberID=p.PassengerID,
-                    AverageRating=0.0,
-                    TotalRidesTaken=0,
-                    TotalRidesHosted=0,
-                    NumberOfRatings=0
-                )
-                db.add(stat)
-                stats[p.PassengerID] = stat
+                if not stat:
+                    stat = MemberStat(
+                        MemberID=p.PassengerID,
+                        AverageRating=0.0,
+                        TotalRidesTaken=0,
+                        TotalRidesHosted=0,
+                        NumberOfRatings=0
+                    )
+                    passenger_shard.add(stat)
 
-            if p.PassengerID == ride.AdminID:
-                stat.TotalRidesHosted += 1
-            else:
-                stat.TotalRidesTaken += 1
+                if p.PassengerID == ride.AdminID:
+                    stat.TotalRidesHosted += 1
+                else:
+                    stat.TotalRidesTaken += 1
+                    
+                passenger_shard.commit()
+            except SQLAlchemyError:
+                passenger_shard.rollback()
 
         db.delete(ride)
         db.commit()
@@ -450,9 +540,12 @@ class FeedbackPayload(BaseModel):
 @app.post("/feedback")
 def submit_feedback(
     data: FeedbackPayload,
-    db: Session = Depends(get_db),
+    shards: dict = Depends(get_db_shards),
     user: Member = Depends(get_current_user)
 ):
+    shard_id = get_shard_for_ride(data.RideID)
+    db = shards[shard_id]
+
     # Ride is already in history now
     logger.info(f"* DB SELECT: Checking RideHistory for RideID {data.RideID}")
     ride = db.query(RideHistory).filter(RideHistory.RideID == data.RideID).first()
@@ -498,7 +591,10 @@ class RatingPayload(BaseModel):
     RatingComment: str | None = None
 
 @app.post("/ratings")
-def submit_rating(data: RatingPayload, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+def submit_rating(data: RatingPayload, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    shard_id = get_shard_for_ride(data.RideID)
+    db = shards[shard_id]
+
     # Prevent duplicate
     logger.info(f"* DB SELECT: Checking existing rating by user {user.MemberID} for RideID {data.RideID}")
     existing = db.query(MemberRating).filter(
@@ -516,42 +612,53 @@ def submit_rating(data: RatingPayload, db: Session = Depends(get_db), user: Memb
         Rating           = data.Rating,
         RatingComment    = data.RatingComment,
     ))
-    logger.info(f"* DB SELECT: Fetching MemberStat for ReceiverMemberID {data.ReceiverMemberID}")
-    stat = db.query(MemberStat)\
-         .filter(MemberStat.MemberID == data.ReceiverMemberID)\
-         .with_for_update()\
-         .first()
-    if stat:
-        total = stat.AverageRating * stat.NumberOfRatings
-        stat.NumberOfRatings += 1
-        stat.AverageRating = (total + data.Rating) / stat.NumberOfRatings
+    db.commit() # Save the rating on the Ride's Shard
+    
+    # Update Member stats on the Receiver's shard
+    receiver_shard = shards[data.ReceiverMemberID % 3]
+    logger.info(f"* DB SELECT: Fetching MemberStat for ReceiverMemberID {data.ReceiverMemberID} from Shard {data.ReceiverMemberID % 3}")
+    try:
+        stat = receiver_shard.query(MemberStat)\
+             .filter(MemberStat.MemberID == data.ReceiverMemberID)\
+             .with_for_update()\
+             .first()
+        if stat:
+            total = stat.AverageRating * stat.NumberOfRatings
+            stat.NumberOfRatings += 1
+            stat.AverageRating = (total + data.Rating) / stat.NumberOfRatings
+            receiver_shard.commit()
+        else:
+            # Create if doesn't exist
+            new_stat = MemberStat(
+                MemberID=data.ReceiverMemberID,
+                AverageRating=data.Rating,
+                NumberOfRatings=1,
+                TotalRidesHosted=0,
+                TotalRidesTaken=0
+            )
+            receiver_shard.add(new_stat)
+            receiver_shard.commit()
+    except SQLAlchemyError as e:
+        receiver_shard.rollback()
+        logger.error(f"Failed to update member stats: {e}")
 
-    db.commit()
     logger.info(f"* DB UPDATE: Rating submitted for MemberID {data.ReceiverMemberID} by MemberID {user.MemberID}")
     return {"message": "Rating submitted"}
 
 @app.get("/ride-history")
-def get_ride_history(db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
-    logger.info(f"* DB SELECT: Fetching rides hosted by MemberID {user.MemberID}")
-    hosted = db.query(RideHistory).filter(RideHistory.AdminID == user.MemberID).all()
-
-    logger.info(f"* DB SELECT: Fetching rides taken by MemberID {user.MemberID}")
-    taken = (
-        db.query(RideHistory)
-        .join(RidePassengerMap, RideHistory.RideID == RidePassengerMap.RideID)
-        .filter(
-            RidePassengerMap.PassengerID == user.MemberID,
-            RideHistory.AdminID != user.MemberID  # ← exclude rides they hosted
-        )
-        .all()
-    )
-
-    def serialize(ride: RideHistory, role: str):
+def get_ride_history(shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    # SCATTER-GATHER: fetch ride history for user (host or passenger) from all shards
+    all_hosted = []
+    all_taken = []
+    
+    def serialize(ride: RideHistory, role: str, db: Session):
         has_feedback = db.query(RideFeedback).filter(
             RideFeedback.RideID == ride.RideID,
             RideFeedback.MemberID == user.MemberID
         ).first() is not None
         
+        # We need the AdminName. Since member data is on Admin's shard, it might or might not be here.
+        # But if the Ride is here, the Admin data MUST be here!
         admin = db.query(Member).filter(Member.MemberID == ride.AdminID).first()
 
         passengers = (
@@ -569,23 +676,51 @@ def get_ride_history(db: Session = Depends(get_db), user: Member = Depends(get_c
             "HasFeedback": has_feedback,
         }
 
-    return (
-        [serialize(r, "HOST")      for r in hosted] +
-        [serialize(r, "PASSENGER") for r in taken]
-    )
+    logger.info(f"Fetching ride history across shards for MemberID {user.MemberID}")
+    for shard_num, db in shards.items():
+        try:
+            # Hosted
+            hosted = db.query(RideHistory).filter(RideHistory.AdminID == user.MemberID).all()
+            for r in hosted:
+                all_hosted.append(serialize(r, "HOST", db))
+                
+            # Taken (Passenger)
+            taken_query = (
+                db.query(RideHistory)
+                .join(RidePassengerMap, RideHistory.RideID == RidePassengerMap.RideID)
+                .filter(
+                    RidePassengerMap.PassengerID == user.MemberID,
+                    RideHistory.AdminID != user.MemberID
+                ).all()
+            )
+            for r in taken_query:
+                all_taken.append(serialize(r, "PASSENGER", db))
+                
+        except SQLAlchemyError as e:
+            logger.error(f"Shard {shard_num} failed during GET /ride-history: {str(e)}")
+            continue
+
+    return all_hosted + all_taken
 
 # --- Routes: Bookings ---
 # This api is for the AvailableRides page to show the user correct UI
 @app.get("/booking-requests")
-def get_bookings(db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
-    # The frontend fetches requests for the current user
-    logger.info(f"* DB SELECT: Fetching booking requests for MemberID {user.MemberID}")
-    requests = db.query(BookingRequest).filter(BookingRequest.PassengerID == user.MemberID).all()
+def get_bookings(shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    requests = []
+    # Scatter gather since a user's booking request exists on the Ride's host shard
+    for shard_num, db in shards.items():
+        try:
+            shard_reqs = db.query(BookingRequest).filter(BookingRequest.PassengerID == user.MemberID).all()
+            requests.extend(shard_reqs)
+        except SQLAlchemyError:
+            continue
     return requests
 
 # My booking requests (send by by)
 @app.post("/booking-requests")
-def request_join(data: RequestJoinData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+def request_join(data: RequestJoinData, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    shard_id = get_shard_for_ride(data.RideID)
+    db = shards[shard_id]
     logger.info(f"* DB SELECT: Fetching pending booking requests for rides hosted by MemberID {user.MemberID}")
     new_req = BookingRequest(RideID=data.RideID, PassengerID=user.MemberID)
     db.add(new_req)
@@ -597,9 +732,12 @@ def request_join(data: RequestJoinData, db: Session = Depends(get_db), user: Mem
 # Booking requests sent to admin (sent to me)
 @app.get("/booking-requests/pending")
 def get_pending_requests(
-    db: Session = Depends(get_db),
+    shards: dict = Depends(get_db_shards),
     user: Member = Depends(get_current_user)
 ):
+    shard_id = user.MemberID % 3
+    db = shards[shard_id]
+    
     results = (
         db.query(BookingRequest)
         .join(ActiveRide, BookingRequest.RideID == ActiveRide.RideID)
@@ -621,7 +759,10 @@ def get_pending_requests(
     ]
 
 @app.patch("/booking-requests/{request_id}")
-def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+def update_booking(request_id: int, data: UpdateRequestData, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    shard_id = user.MemberID % 3
+    db = shards[shard_id]
+    
     logger.info(f"* DB SELECT: Fetching booking request {request_id}")
     req = db.query(BookingRequest).filter(BookingRequest.RequestID == request_id).first()
     if not req:
@@ -652,31 +793,46 @@ def update_booking(request_id: int, data: UpdateRequestData, db: Session = Depen
  
 # --- Routes: Messages ---
 @app.get("/messages")
-def get_messages(rideId: str, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
-    messages = (
-        db.query(MessageHistory, Member)
-        .join(Member, MessageHistory.SenderID == Member.MemberID)
+def get_messages(rideId: str, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    shard_id = get_shard_for_ride(rideId)
+    db = shards[shard_id]
+    
+    # We may need to gather user profiles from other shards if the sender is not on the same shard.
+    messages_query = (
+        db.query(MessageHistory)
         .filter(MessageHistory.RideID == rideId)
         .order_by(MessageHistory.Timestamp.asc())
         .all()
     )
+
+    # Resolve sender details via scatter-gather since senders might be from different shards
+    sender_ids = {msg.SenderID for msg in messages_query}
+    senders = {}
+    for sender_id in sender_ids:
+        sender_shard = shards[sender_id % 3]
+        member = sender_shard.query(Member).filter(Member.MemberID == sender_id).first()
+        if member:
+            senders[sender_id] = member
 
     return [
         {
             "MessageID": msg.MessageID,
             "RideID": msg.RideID,
             "SenderID": msg.SenderID,
-            "SenderName": member.FullName if member else "Unknown",
-            "SenderAvatar": member.ProfileImageURL if member else "",
+            "SenderName": senders.get(msg.SenderID).FullName if senders.get(msg.SenderID) else "Unknown",
+            "SenderAvatar": senders.get(msg.SenderID).ProfileImageURL if senders.get(msg.SenderID) else "",
             "MessageText": msg.MessageText,
             "Timestamp": msg.Timestamp.isoformat(),
             "IsRead": msg.IsRead
         }
-        for msg, member in messages
+        for msg in messages_query
     ]
 
 @app.post("/messages")
-def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: Member = Depends(get_current_user)):
+def send_message(data: MessageCreateData, shards: dict = Depends(get_db_shards), user: Member = Depends(get_current_user)):
+    shard_id = get_shard_for_ride(data.RideID)
+    db = shards[shard_id]
+    
     new_msg = MessageHistory(RideID=data.RideID, SenderID=user.MemberID, MessageText=data.MessageText)
     db.add(new_msg)
     db.commit()
@@ -694,10 +850,13 @@ def send_message(data: MessageCreateData, db: Session = Depends(get_db), user: M
     }
 
 @app.get("/members/{member_id}")
-def get_user_profile(member_id: int, db: Session = Depends(get_db)) -> Any:
+def get_user_profile(member_id: int, shards: dict = Depends(get_db_shards)) -> Any:
     """
     Fetch a user's profile details along with their ride statistics.
     """
+    shard_id = member_id % 3
+    db = shards[shard_id]
+    
     # Query both Member and MemberStat tables using an outer join
     result = (
         db.query(Member, MemberStat)
@@ -759,13 +918,18 @@ def check_admin(member_id: int):
 
 # 1. GET current admins
 @app.get("/admin/current-admins")
-def get_current_admins(member_id: int, db: Session = Depends(get_db)):
+def get_current_admins(member_id: int, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
     data = read_admin_file()
     ids = data.get("Admin_Member_Ids", [])
 
-    admins = db.query(Member).filter(Member.MemberID.in_(ids)).all()
+    admins = []
+    for shard_num, db in shards.items():
+        try:
+            admins.extend(db.query(Member).filter(Member.MemberID.in_(ids)).all())
+        except SQLAlchemyError:
+            continue
 
     return [
         {"MemberID": a.MemberID, "FullName": a.FullName, "Email": a.Email}
@@ -775,10 +939,17 @@ def get_current_admins(member_id: int, db: Session = Depends(get_db)):
 
 # 2. POST add admin
 @app.post("/admin/add-admin")
-def add_admin(member_id: int, email: str, db: Session = Depends(get_db)):
+def add_admin(member_id: int, email: str, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
-    member = db.query(Member).filter(Member.Email == email).first()
+    member = None
+    for shard_num, db in shards.items():
+        try:
+            member = db.query(Member).filter(Member.Email == email).first()
+            if member: break
+        except SQLAlchemyError:
+            continue
+            
     if not member:
         raise HTTPException(404, "Member not found")
 
@@ -797,10 +968,15 @@ def add_admin(member_id: int, email: str, db: Session = Depends(get_db)):
 
 # 3. GET member table
 @app.get("/admin/see-member-table")
-def see_members(member_id: int, db: Session = Depends(get_db)):
+def see_members(member_id: int, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
-    members = db.query(Member).all()
+    members = []
+    for shard_num, db in shards.items():
+        try:
+            members.extend(db.query(Member).all())
+        except SQLAlchemyError:
+            continue
 
     return [
         {
@@ -820,8 +996,11 @@ def see_members(member_id: int, db: Session = Depends(get_db)):
 
 # 4. POST remove ride
 @app.post("/admin/remove-ride")
-def remove_ride(member_id: int, ride_id: str, db: Session = Depends(get_db)):
+def remove_ride(member_id: int, ride_id: str, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
+    
+    shard_id = get_shard_for_ride(ride_id)
+    db = shards[shard_id]
 
     ride = db.query(ActiveRide).filter(ActiveRide.RideID == ride_id).first()
     if not ride:
@@ -835,10 +1014,15 @@ def remove_ride(member_id: int, ride_id: str, db: Session = Depends(get_db)):
 
 # 5. GET feedback table
 @app.get("/admin/ridefeedback-table")
-def get_feedback(member_id: int, db: Session = Depends(get_db)):
+def get_feedback(member_id: int, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
-    feedbacks = db.query(RideFeedback).all()
+    feedbacks = []
+    for shard_num, db in shards.items():
+        try:
+            feedbacks.extend(db.query(RideFeedback).all())
+        except SQLAlchemyError:
+            continue
 
     return [
         {
@@ -854,10 +1038,16 @@ def get_feedback(member_id: int, db: Session = Depends(get_db)):
 
 # 6. GET vehicles
 @app.get("/admin/see-vehicle")
-def get_vehicles(member_id: int, db: Session = Depends(get_db)):
+def get_vehicles(member_id: int, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
-    vehicles = db.query(Vehicle).all()
+    vehicles = []
+    for shard_num, db in shards.items():
+        try:
+            vehicles = db.query(Vehicle).all()
+            if vehicles: break # Replicated across all shards, so reading from one is enough
+        except SQLAlchemyError:
+            continue
 
     return [
         {
@@ -871,13 +1061,23 @@ def get_vehicles(member_id: int, db: Session = Depends(get_db)):
 
 # 7. POST add vehicle
 @app.post("/admin/add-vehicle")
-def add_vehicle(member_id: int, vehicle_type: str, max_capacity: int, db: Session = Depends(get_db)):
+def add_vehicle(member_id: int, vehicle_type: str, max_capacity: int, shards: dict = Depends(get_db_shards)):
     verify_admin(member_id)
 
-    v = Vehicle(VehicleType=vehicle_type, MaxCapacity=max_capacity)
+    # Vehicles are small/reference tables and should be replicated entirely across all shards
+    vehicle_added_info = None
+    for shard_num, db in shards.items():
+        try:
+            v = Vehicle(VehicleType=vehicle_type, MaxCapacity=max_capacity)
+            db.add(v)
+            db.commit()
+            db.refresh(v)
+            if vehicle_added_info is None:
+                vehicle_added_info = v
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to add vehicle to Shard {shard_num}: {e}")
 
-    db.add(v)
-    db.commit()
-    db.refresh(v)
+    if not vehicle_added_info:
+        raise HTTPException(status_code=500, detail="Failed to add vehicle globally")
 
-    return {"msg": "Vehicle added", "VehicleID": v.VehicleID}
+    return {"msg": "Vehicle added to all active shards", "VehicleID": vehicle_added_info.VehicleID}
