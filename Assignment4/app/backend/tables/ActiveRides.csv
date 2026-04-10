@@ -1,4 +1,5 @@
-19487c13-c598-46ec-aa3c-407a1bf05669,28498490,4,1,IIT Gandhinagar, Acad Block Path, - 382019, GJ, India,Sector 10, Gurgaon - 120001, HR, India,Car,2026-04-02 02:29:00,50,1,ACTIVE
+RideID,AdminID,AvailableSeats,PassengerCount,Source,Destination,VehicleType,StartTime,EstimatedTime,FemaleOnly,Status
+19487c13-c598-46ec-aa3c-407a1bf05669,28498490,4,1,"IIT Gandhinagar, Acad Block Path, - 382019, GJ, India","Sector 10, Gurgaon - 120001, HR, India",Car,2026-04-02 02:29:00,50,1,ACTIVE
 4d54af73-b35e-4410-b352-f3eb42ebf559,28498438,0,6,Ahmedabad Railway Station,Gift City,SUV Cab,2026-02-16 04:03:11,56,0,ACTIVE
 553aced0-6547-41e5-9aaa-26ddf8e769ed,28498442,1,6,IIT Gandhinagar (Palaj),Gift City,Premium SUV,2026-02-15 06:03:11,71,1,ACTIVE
 6e0180e5-20d9-4e12-872f-f6b45ef5cd82,28498446,0,1,IIT Gandhinagar (Palaj),PVR Motera,Bike,2026-02-16 15:03:11,81,0,ACTIVE
@@ -13,5 +14,5 @@ b83d9c8b-0278-4a57-9ba7-4b9673550776,28498459,3,3,IIT Gandhinagar (Palaj),PVR Mo
 bc1f49d4-f927-4adf-97a8-86c33187bf44,28498459,2,1,IIT Gandhinagar (Palaj),SG Highway,Auto Rickshaw,2026-02-16 05:03:11,55,0,ACTIVE
 c409227a-e96e-4444-8749-15c2bd03d2ae,28498455,0,6,Infocity,Gift City,SUV Cab,2026-02-15 19:03:11,38,0,ACTIVE
 dd1ee643-2f02-4546-977c-bc55fd4b55ea,28498463,1,3,SVPI Airport,IIT Gandhinagar (Palaj),Mini Cab,2026-02-17 01:03:11,74,1,ACTIVE
-e8e48b51-43b9-4a88-8254-5fa6859ba6bb,28498472,1,2,Dhandhuka, GJ, India,Vasai-Virar, MH, India,Car,2026-03-22 09:00:00,230,0,COMPLETING
+e8e48b51-43b9-4a88-8254-5fa6859ba6bb,28498472,1,2,"Dhandhuka, GJ, India","Vasai-Virar, MH, India",Car,2026-03-22 09:00:00,230,0,COMPLETING
 f29f6565-5bc4-495a-9878-4b91b3b876c3,28498452,3,1,IIT Gandhinagar (Palaj),PVR Motera,Sedan Cab,2026-02-16 21:03:11,78,0,ACTIVE

@@ -1,18 +1,19 @@
-1,dd1ee643-2f02-4546-977c-bc55fd4b55ea,28498463,Hi, I have booked the ride. Are you near the pickup point?,2026-02-10 09:00:00,0
-2,6e0180e5-20d9-4e12-872f-f6b45ef5cd82,28498446,Yes, I am 2 minutes away. Please wait near the main gate.,2026-02-10 09:02:00,0
-4,c409227a-e96e-4444-8749-15c2bd03d2ae,28498455,Yes, that is fine. I am starting from my location now.,2026-02-10 11:00:00,0
+MessageID,RideID,SenderID,MessageText,Timestamp,IsRead
+1,dd1ee643-2f02-4546-977c-bc55fd4b55ea,28498463,"Hi, I have booked the ride. Are you near the pickup point?",2026-02-10 09:00:00,0
+2,6e0180e5-20d9-4e12-872f-f6b45ef5cd82,28498446,"Yes, I am 2 minutes away. Please wait near the main gate.",2026-02-10 09:02:00,0
+4,c409227a-e96e-4444-8749-15c2bd03d2ae,28498455,"Yes, that is fine. I am starting from my location now.",2026-02-10 11:00:00,0
 5,6f179c80-7958-4a77-b0fb-00d61de45087,28498445,I am standing outside the mall entrance. Can you see me?,2026-02-10 12:30:00,0
 6,bc1f49d4-f927-4adf-97a8-86c33187bf44,28498459,I have reached the pickup spot. Please confirm your location.,2026-02-10 13:10:00,0
 7,9735ef94-75bf-49ed-bb07-953d50455b23,28498438,I just booked the ride. What is your exact pickup point?,2026-02-10 14:00:00,0
 8,4d54af73-b35e-4410-b352-f3eb42ebf559,28498438,Let us meet near the petrol pump on the left side.,2026-02-10 14:02:00,0
 10,a1287b4e-2a85-444b-9813-c5a4759cce8c,28498439,I can see your car. Should I get in now?,2026-02-10 16:00:00,0
-11,f29f6565-5bc4-495a-9878-4b91b3b876c3,28498452,Yes, please get in. We will leave immediately.,2026-02-10 17:10:00,0
+11,f29f6565-5bc4-495a-9878-4b91b3b876c3,28498452,"Yes, please get in. We will leave immediately.",2026-02-10 17:10:00,0
 13,b83d9c8b-0278-4a57-9ba7-4b9673550776,28498459,It should take around 30 minutes depending on traffic.,2026-02-10 19:15:00,0
 14,553aced0-6547-41e5-9aaa-26ddf8e769ed,28498442,Thanks for accepting my shared ride request.,2026-02-10 20:00:00,0
-15,7dad019c-c58d-42db-be4f-9d7d794b57ed,28498464,No problem, happy to share the ride with you!,2026-02-10 21:00:00,0
+15,7dad019c-c58d-42db-be4f-9d7d794b57ed,28498464,"No problem, happy to share the ride with you!",2026-02-10 21:00:00,0
 16,7262c937-95e9-4526-9efc-1d2d65db305c,28498445,I think Uber is better.,2026-02-12 09:00:00,0
 17,b6facd13-306b-4a00-9ef0-da8c342217a1,28498449,Can we include I more member?,2026-02-12 09:05:00,0
-20,b673fea0-b774-41f3-9e76-2846183a7467,28498465,Hello, I wanna go to Gandhinagar Capital Railway Station.,2026-02-12 09:20:00,0
+20,b673fea0-b774-41f3-9e76-2846183a7467,28498465,"Hello, I wanna go to Gandhinagar Capital Railway Station.",2026-02-12 09:20:00,0
 26,b6facd13-306b-4a00-9ef0-da8c342217a1,28498468,hi,2026-03-20 19:25:58,0
 27,4d54af73-b35e-4410-b352-f3eb42ebf559,28498468,bye bye,2026-03-20 19:26:23,0
 28,7262c937-95e9-4526-9efc-1d2d65db305c,28498468,hello,2026-03-20 19:29:17,0
