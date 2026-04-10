@@ -1,3 +1,11 @@
+### Commands for docker compose 
+1. Stop the containers AND delete the hidden data volumes
+docker-compose down -v
+
+2. Start them back up
+docker-compose up -d
+
+
 ### Members Table
 * **Shard Key:** `MemberID` (Primary Key)
 * **Partition strategy:** `hash(MemberID) % num_shards`
