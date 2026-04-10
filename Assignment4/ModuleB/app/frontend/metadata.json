@@ -1,0 +1,7 @@
+{
+  "name": "IITGN Pool",
+  "description": "A hyper-local carpooling platform exclusively for IIT Gandhinagar students to coordinate rides to and from campus. Features real-time requests, chat, and map-based ride planning.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
