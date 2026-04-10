@@ -72,9 +72,9 @@ from models import (
 # Shard connection engines
 # ──────────────────────────────────────────────────────────────────────────────
 SHARD_URLS = {
-    0: "mysql+pymysql://root:rootpass@10.7.59.24:3307/RideShare",
-    1: "mysql+pymysql://root:rootpass@10.7.59.24:3308/RideShare",
-    2: "mysql+pymysql://root:rootpass@10.7.59.24:3309/RideShare",
+    0: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3307/RideShare",
+    1: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3308/RideShare",
+    2: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3309/RideShare",
 }
 
 shard_engines  = {sid: create_engine(url, pool_pre_ping=True) for sid, url in SHARD_URLS.items()}
