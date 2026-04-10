@@ -2,41 +2,15 @@
 migration.py  —  End-to-End Sharded Migration
 ===============================================
 
-Hybrid Partitioning (per report):
-
-  HASH-BASED  : Members, MemberStats          key → MemberID % 3
-                ActiveRides, RideHistory       key → AdminID  % 3
-
+Hybrid Partitioning:
+  HASH-BASED  : Members, MemberStats          key → SHA256(MemberID) % 3
+                ActiveRides, RideHistory       key → SHA256(AdminID)  % 3
   DIRECTORY   : BookingRequest, MessageHistory,
                 RidePassengerMap, MemberRating,
                 RideFeedback, Cancellation     key → RideID (JSON lookup)
-
   REPLICATED  : Vehicle                        → all 3 shards
 
-Problems fixed
-──────────────
-1. FK constraint errors
-   Cross-shard FKs cannot be satisfied (referenced row lives on a different
-   shard). Fix: SET foreign_key_checks = 0 on all shards before inserts,
-   restored in a finally block. Does NOT affect the running application.
-
-2. Duplicate-key errors on re-run
-   Fix: INSERT IGNORE — existing rows are silently skipped.
-   Makes the script fully idempotent.
-
-3. Orphaned RideIDs (cancelled rides)
-   Cancelled rides are deleted from ActiveRides and are NOT archived to
-   RideHistory, so their RideIDs are never registered in the directory.
-   But RidePassengerMap / BookingRequests / Messages for those rides still
-   exist in the flat files.
-   Fix: build_full_directory() pre-scans every CSV that contains a RideID
-   column. For RideIDs found in ActiveRides or RideHistory, the shard is
-   AdminID % 3. For every other RideID (orphaned / cancelled rides), we
-   fall back to a consistent hash of the UUID string itself so routing is
-   always deterministic.
-
-Migration order (FK-safe)
-──────────────────────────
+Migration order (FK-safe):
   Phase 1 — no dependencies  : Member, Vehicle, MemberStat
   Phase 2 — build directory  : ActiveRide, RideHistory
   Phase 3 — consume directory: BookingRequest, MessageHistory,
@@ -68,9 +42,7 @@ from models import (
     Cancellation,
 )
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Shard connection engines
-# ──────────────────────────────────────────────────────────────────────────────
 SHARD_URLS = {
     0: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3307/RideShare",
     1: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3308/RideShare",
@@ -81,9 +53,7 @@ shard_engines  = {sid: create_engine(url, pool_pre_ping=True) for sid, url in SH
 shard_sessions = {sid: sessionmaker(bind=eng, autocommit=False, autoflush=False)
                   for sid, eng in shard_engines.items()}
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Shard config
-# ──────────────────────────────────────────────────────────────────────────────
 SHARD_CONFIG = {
     Member:          {"method": "hash",      "key": "MemberID"},
     MemberStat:      {"method": "hash",      "key": "MemberID"},
@@ -118,9 +88,7 @@ RIDEID_COLUMN_INDEX = {
 TABLES_DIR     = "tables"
 DIRECTORY_FILE = "ride_shard_directory.json"
 
-# ──────────────────────────────────────────────────────────────────────────────
 # FK-check helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def disable_fk_checks() -> None:
     print("\n[FK] Disabling foreign_key_checks on all shards...")
@@ -139,22 +107,7 @@ def enable_fk_checks() -> None:
             conn.commit()
         print(f"  ✓ Shard {sid} — foreign_key_checks = 1")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Consistent hash fallback for orphaned RideIDs (cancelled rides)
-# ──────────────────────────────────────────────────────────────────────────────
-
-def uuid_to_shard(ride_id: str) -> int:
-    """
-    Deterministically map a UUID string to a shard (0/1/2) using MD5.
-    Used for RideIDs that belong to cancelled rides — they were deleted from
-    ActiveRides and never written to RideHistory, so they have no AdminID
-    to hash. MD5 gives a stable, uniform distribution across shards.
-    """
-    return int(hashlib.md5(ride_id.encode()).hexdigest(), 16) % 3
-
-# ──────────────────────────────────────────────────────────────────────────────
 # Directory helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def load_directory() -> dict:
     if os.path.exists(DIRECTORY_FILE):
@@ -185,18 +138,15 @@ def lookup_ride(ride_id: str, directory: dict) -> int:
     if ride_id in directory:
         return directory[ride_id]
 
-    # Orphaned RideID — use consistent UUID hash as fallback
-    shard_id = uuid_to_shard(ride_id)
+    shard_id = int(hashlib.sha256(ride_id.encode('utf-8')).hexdigest(), 16) % 3
     print(
         f"  [WARN] RideID '{ride_id}' not in directory "
-        f"(cancelled ride) — UUID hash fallback → Shard {shard_id}"
+        f"(cancelled ride) — SHA256 hash fallback → Shard {shard_id}"
     )
     register_ride(ride_id, shard_id, directory)
     return shard_id
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Pre-scan: build a complete directory BEFORE migration starts
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_full_directory(directory: dict) -> None:
     """
@@ -211,12 +161,11 @@ def build_full_directory(directory: dict) -> None:
     """
     print("\n[DIR] Pre-scanning all CSVs to build complete RideID directory...")
 
-    # ── Pass 1: authoritative entries from ride-owner tables ─────────────────
     # Each entry: (model, column used as shard key)
     pass1_sources = [
-        (ActiveRide,  "AdminID"),    # shard = AdminID  % 3
-        (RideHistory, "AdminID"),    # shard = AdminID  % 3
-        (Cancellation,"MemberID"),   # shard = MemberID % 3
+        (ActiveRide,  "AdminID"),    # shard = SHA256(AdminID)  % 3
+        (RideHistory, "AdminID"),    # shard = SHA256(AdminID)  % 3
+        (Cancellation,"MemberID"),   # shard = SHA256(MemberID) % 3
     ]
 
     for model, shard_col in pass1_sources:
@@ -239,12 +188,11 @@ def build_full_directory(directory: dict) -> None:
                 ride_id   = row[ride_idx].strip()
                 shard_val = row[shard_idx].strip()
                 if ride_id and ride_id not in directory:
-                    directory[ride_id] = int(shard_val) % 3
+                    directory[ride_id] = int(hashlib.sha256(shard_val.encode('utf-8')).hexdigest(), 16) % 3
                     count += 1
 
         print(f"  {model.__tablename__} (key={shard_col}): registered {count} new RideID(s)")
 
-    # ── Pass 2: fallback for any RideID not already covered ──────────────────
     for model, ride_col in RIDEID_COLUMN_INDEX.items():
         if model in (ActiveRide, RideHistory):
             continue  # already handled above
@@ -265,22 +213,20 @@ def build_full_directory(directory: dict) -> None:
                     continue
                 ride_id = row[ride_idx].strip()
                 if ride_id and ride_id not in directory:
-                    shard_id = uuid_to_shard(ride_id)
+                    shard_id = int(hashlib.sha256(ride_id.encode('utf-8')).hexdigest(), 16) % 3
                     directory[ride_id] = shard_id
                     count += 1
 
         if count:
             print(
                 f"  {model.__tablename__}: {count} orphaned RideID(s) "
-                f"assigned via UUID hash (cancelled rides)"
+                f"assigned via SHA256 hash (cancelled rides)"
             )
 
     save_directory(directory)
     print(f"[DIR] Directory complete — {len(directory)} total RideID(s)\n")
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Generic row helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def get_columns(model) -> list:
     return [col.key for col in inspect(model).mapper.columns]
@@ -343,9 +289,7 @@ def insert_ignore(model, row: dict, session: Session) -> None:
     session.execute(stmt.on_duplicate_key_update(**update_cols))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Shard routing
-# ──────────────────────────────────────────────────────────────────────────────
 
 def resolve_shard(model, row: dict, directory: dict) -> int | None:
     cfg    = SHARD_CONFIG[model]
@@ -353,8 +297,9 @@ def resolve_shard(model, row: dict, directory: dict) -> int | None:
     key    = cfg["key"]
 
     if method == "hash":
-        shard_id = int(row[key]) % 3
-        print(f"  [HASH] {key}={row[key]}  →  {row[key]} % 3 = {shard_id}  →  Shard {shard_id}")
+        val_str = str(row[key])
+        shard_id = int(hashlib.sha256(val_str.encode('utf-8')).hexdigest(), 16) % 3
+        print(f"  [HASH] {key}={val_str}  →  SHA256 % 3 = {shard_id}  →  Shard {shard_id}")
         return shard_id
 
     if method == "directory":
@@ -365,9 +310,7 @@ def resolve_shard(model, row: dict, directory: dict) -> int | None:
 
     return None  # replicate
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Core migration function
-# ──────────────────────────────────────────────────────────────────────────────
 
 def migrate_table(model, directory: dict, first_row_only: bool = False) -> None:
     cfg        = SHARD_CONFIG[model]
@@ -416,9 +359,7 @@ def migrate_table(model, directory: dict, first_row_only: bool = False) -> None:
         for sess in sessions.values():
             sess.close()
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Connection test
-# ──────────────────────────────────────────────────────────────────────────────
 
 def test_connections() -> bool:
     print("=== Testing shard connections ===")
@@ -455,9 +396,7 @@ from collections import Counter
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Normalization helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _normalize_numeric(v):
     """
@@ -556,9 +495,7 @@ def print_row_differences(model, pk, csv_row, shard_row, shard_id):
     print("       Suggested fix: truncate MemberStats on all shards and rerun migration,")
     print("       or update the stale shard row so it matches the CSV exactly.")
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Integrity Check
-# ──────────────────────────────────────────────────────────────────────────────
 
 def test_integrity():
     print("\n=== Integrity Check (No loss / no duplication) ===\n")
@@ -689,9 +626,7 @@ def test_integrity():
         else:
             print("  ✅ Data matches CSV exactly")
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Entry point
-# ──────────────────────────────────────────────────────────────────────────────
 
 def main():
     print("=== Shard Migration — End to End ===\n")
@@ -706,8 +641,6 @@ def main():
     directory = load_directory()
 
     # Pre-scan ALL CSVs to populate directory completely before any inserts.
-    # This handles orphaned RideIDs (cancelled rides) that would never appear
-    # in ActiveRides or RideHistory.
     build_full_directory(directory)
 
     disable_fk_checks()
@@ -720,9 +653,9 @@ def main():
         migrate_table(Cancellation,    directory)   # hash on MemberID
 
         # Phase 2 — build RideID directory (authoritative shard assignment)
-        migrate_table(ActiveRide,      directory)   # AdminID  % 3 → registers RideID
-        migrate_table(RideHistory,     directory)   # AdminID  % 3 → registers RideID
-        migrate_table(Cancellation,    directory)   # MemberID % 3 → registers RideID
+        migrate_table(ActiveRide,      directory)   # SHA256(AdminID)  % 3 → registers RideID
+        migrate_table(RideHistory,     directory)   # SHA256(AdminID)  % 3 → registers RideID
+        migrate_table(Cancellation,    directory)   # SHA256(MemberID) % 3 → registers RideID
 
         # Phase 3 — directory consumers (directory is now fully populated)
         migrate_table(BookingRequest,  directory)
