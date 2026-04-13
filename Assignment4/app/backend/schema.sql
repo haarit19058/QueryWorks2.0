@@ -16,6 +16,33 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `Members`
+--
+
+DROP TABLE IF EXISTS `Members`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `Members` (
+  `MemberID` int NOT NULL AUTO_INCREMENT,
+  `GoogleSub` varchar(255) NOT NULL,
+  `FullName` varchar(100) NOT NULL,
+  `ProfileImageURL` varchar(255) DEFAULT 'default_avatar.png',
+  `Programme` varchar(50) NOT NULL,
+  `Branch` varchar(50) DEFAULT NULL,
+  `BatchYear` year NOT NULL,
+  `Email` varchar(100) NOT NULL,
+  `ContactNumber` varchar(15) NOT NULL,
+  `Age` int DEFAULT NULL,
+  `Gender` char(1) DEFAULT NULL,
+  PRIMARY KEY (`MemberID`),
+  UNIQUE KEY `GoogleSub` (`GoogleSub`),
+  UNIQUE KEY `Email` (`Email`),
+  UNIQUE KEY `ContactNumber` (`ContactNumber`),
+  KEY `idx_email` (`Email`)
+) ENGINE=InnoDB AUTO_INCREMENT=28498493 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `ActiveRides`
 --
 
@@ -122,33 +149,6 @@ CREATE TABLE `MemberStats` (
   PRIMARY KEY (`MemberID`),
   CONSTRAINT `fk_stats_member` FOREIGN KEY (`MemberID`) REFERENCES `Members` (`MemberID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `Members`
---
-
-DROP TABLE IF EXISTS `Members`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `Members` (
-  `MemberID` int NOT NULL AUTO_INCREMENT,
-  `GoogleSub` varchar(255) NOT NULL,
-  `FullName` varchar(100) NOT NULL,
-  `ProfileImageURL` varchar(255) DEFAULT 'default_avatar.png',
-  `Programme` varchar(50) NOT NULL,
-  `Branch` varchar(50) DEFAULT NULL,
-  `BatchYear` year NOT NULL,
-  `Email` varchar(100) NOT NULL,
-  `ContactNumber` varchar(15) NOT NULL,
-  `Age` int DEFAULT NULL,
-  `Gender` char(1) DEFAULT NULL,
-  PRIMARY KEY (`MemberID`),
-  UNIQUE KEY `GoogleSub` (`GoogleSub`),
-  UNIQUE KEY `Email` (`Email`),
-  UNIQUE KEY `ContactNumber` (`ContactNumber`),
-  KEY `idx_email` (`Email`)
-) ENGINE=InnoDB AUTO_INCREMENT=28498493 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

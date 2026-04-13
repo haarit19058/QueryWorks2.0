@@ -41,12 +41,18 @@ from models import (
     RideHistory,
     Cancellation,
 )
+from dotenv import load_dotenv
+load_dotenv()
+
+SHARD0_URL = os.environ.get("SHARD0_DATABASE_URL")
+SHARD1_URL = os.environ.get("SHARD1_DATABASE_URL")
+SHARD2_URL = os.environ.get("SHARD2_DATABASE_URL")
 
 # Shard connection engines
 SHARD_URLS = {
-    0: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3307/RideShare",
-    1: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3308/RideShare",
-    2: "mysql+mysqlconnector://root:rootpass@10.7.59.24:3309/RideShare",
+    0: SHARD0_URL,
+    1: SHARD1_URL,
+    2: SHARD2_URL,
 }
 
 shard_engines  = {sid: create_engine(url, pool_pre_ping=True) for sid, url in SHARD_URLS.items()}
