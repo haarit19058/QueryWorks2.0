@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request, status, 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, text, event
 from sqlalchemy.exc import SQLAlchemyError
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -32,7 +32,7 @@ JWT_SECRET = os.environ.get("JWT_SECRET_KEY", "fallback-secret-key")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 ALGORITHM = "HS256"
 ADMIN_FILE = "admin.json"
-RIDE_DIRECTORY_FILE = "ride_shard_map.json"
+RIDE_DIRECTORY_FILE = "ride_shard_directory.json"
 
 def get_ride_shard_map() -> dict:
     if not os.path.exists(RIDE_DIRECTORY_FILE):
@@ -44,13 +44,13 @@ def update_ride_directory(ride_id: str, shard_id: int):
     mapping = get_ride_shard_map()
     mapping[ride_id] = shard_id
     with open(RIDE_DIRECTORY_FILE, "w") as f:
-        json.dump(mapping, f)
+        json.dump(mapping, f, indent=4)
 
 def get_shard_for_ride(ride_id: str) -> int:
     mapping = get_ride_shard_map()
     return mapping.get(ride_id, 0) # Fallback to 0 if not found
 
-GLOBAL_NEXT_MEMBER_ID = 29498490
+GLOBAL_NEXT_MEMBER_ID = None
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(os.path.dirname(CURRENT_DIR))
@@ -91,6 +91,13 @@ logging.getLogger("fastapi").setLevel(logging.ERROR)
 engine0 = create_engine(SHARD0_URL, pool_size=50, max_overflow=50, pool_timeout=30)
 engine1 = create_engine(SHARD1_URL, pool_size=50, max_overflow=50, pool_timeout=30)
 engine2 = create_engine(SHARD2_URL, pool_size=50, max_overflow=50, pool_timeout=30)
+
+for engine in (engine0, engine1, engine2):
+    @event.listens_for(engine, "connect")
+    def configure_fk_checks(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET foreign_key_checks = 0;")
+        cursor.close()
 
 SessionLocal0 = sessionmaker(autocommit=False, autoflush=False, bind=engine0)
 SessionLocal1 = sessionmaker(autocommit=False, autoflush=False, bind=engine1)
@@ -244,7 +251,7 @@ def home():
     return {"message": "Welcome to home page!"}
 
 @app.post("/auth/login") 
-def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_db)):
+def login(data: GoogleLoginData, response: Response, shards: dict = Depends(get_db_shards)):
     # 1. Exchange the Authorization Code for an ID Token
     token_url = "https://oauth2.googleapis.com/token"
     token_payload = {
@@ -271,9 +278,18 @@ def login(data: GoogleLoginData, response: Response, db: Session = Depends(get_d
         idinfo = id_token.verify_oauth2_token(extracted_id_token, google_requests.Request(), GOOGLE_CLIENT_ID)
         email = idinfo['email']
         
-        logger.info(f"Using Shard 0/Fallback (get_db) for initial email check during login")
-        logger.info(f"* DB SELECT: Checking Member table for Email: {email}")
-        user = db.query(Member).filter(Member.Email == email).first()
+        logger.info(f"Using Scatter Gather to check all shards for Email during login")
+        
+        user = None
+        for shard_num, db in shards.items():
+            logger.info(f"* DB SELECT: Checking Member table on Shard {shard_num} for Email: {email}")
+            try:
+                user = db.query(Member).filter(Member.Email == email).first()
+                if user:
+                    break
+            except SQLAlchemyError as e:
+                logger.error(f"Shard {shard_num} failed during login email check: {str(e)}")
+                continue
         
         if user:
             logger.info(f"User logged in successfully: {email} (ID: {user.MemberID})")
