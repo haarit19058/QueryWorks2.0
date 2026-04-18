@@ -1,43 +1,34 @@
-**Feedback API**
-- When Ride Admin Clicks on mark as completed, every passenger gets the form of writing Feedback which is savedSafety, Comfort, Punctuality
+# QueryWorks 2.0 Frontend
 
-API endpoint
-post 
-{
-    MemberID,
-    RideID,
-    FeedbackText,
-    FeedbackCategory,
-    [ReceiverMemberID, Rating, RatingComment]
-}
+The frontend module is built using React to provide a responsive and reactive interface. It interacts heavily with our partitioned backend relying on our defined Sharding APIs.
 
-This adds rows in RideFeedback table and MemberRating table
-class MemberRating(Base):
-    __tablename__ = "MemberRatings"
+## File Breakdown
 
-    RideID = Column(String(50), primary_key=True)
-    SenderMemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    ReceiverMemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    Rating = Column(Float, nullable=False)
-    RatingComment = Column(String(500))
-    RatedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
-class RideFeedback(Base):
-    __tablename__ = "RideFeedback"
+* **`index.html`**: Entry point for rendering the app. Defines metadata and injects the core `App` component into the DOM.
+* **`index.tsx` / `App.tsx`**: Bootstraps the application. Contains the root routing wrapper allowing users to navigate between available rides, chat interface, history view, admin dashboard, etc. 
+* **`store.tsx`**: Global state management configuration. Stores session states like user context (ID, Role), map coordinates, and UI themes across pages correctly tracking active ride flows.
+* **`package.json`**: Describes application dependencies, including Next/React router dependencies, styling plugins, or chart toolkits. Contains package scripts like `dev`, `build`, and `preview`.
+* **`vite.config.ts`**: The bundler configuration script. This runs the build pipeline efficiently parsing TSX assets.
+* **`.env`**: Contains sensitive keys holding references to the backend base API URL across different environments.
+* **`tsconfig.json`**: Rules dictating how TypeScript handles type checking, defining generic parameters across components and DOM libraries.
+* **`types.ts`**: Core TypeScript interfaces shared between files for type safety. Defines expected payload schemas for models such as `Ride`, `User`, `Message`, and mapping these responses back seamlessly from the sharded API requests.
+* **`components/`**: Reusable view logic segments such as navigations (`Navbar.tsx`), dynamic input logic (`Autocomplete.tsx`), custom maps (`MapComponent.tsx`), and restricted interfaces (`AdminRoute.tsx`).
+* **`pages/`**: Single-pane routing modules serving as full-screen interfaces. For example, `Profile.tsx`, `AddRide.tsx`, `AvailableRides.tsx`.
 
-    RideID = Column(String(50), primary_key=True)
-    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    FeedbackText = Column(String(500), nullable=False)
-    FeedbackCategory = Column(String(50))
-    SubmittedAt = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
+## How to Run (from the repository root directory)
 
-It would also change member stat table since ride hosted and trip taken increases and ratings also changes
-class MemberStat(Base):
-    __tablename__ = "MemberStats"
+Open your terminal at the root directory of Assignment 4 (`Assignment4/`), then run:
 
-    MemberID = Column(Integer, ForeignKey("Members.MemberID", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    AverageRating = Column(Float, nullable=False, default=0.00)
-    TotalRidesTaken = Column(Integer, nullable=False, default=0)
-    TotalRidesHosted = Column(Integer, nullable=False, default=0)
-    NumberOfRatings = Column(Integer, nullable=False, default=0)
+### Setup & Activation
 
-I think clicking on markascompleted doesn't change delete ride directly after filling this type of form it will change
+1. **Install dependencies:**
+   Make sure you have Node.js and npm installed. Run the command to install packages:
+   ```bash
+   npm install 
+   ```
+
+2. **Start the development server:**
+   Use the `npm run dev` script targeted at the frontend prefix.
+   ```bash
+   npm run dev
+   ```
