@@ -16,7 +16,7 @@ Currently, most students rely on WhatsApp groups, college notice boards, or gene
 
 ## Our Solution
 
-We built **QueryWorks 2.0**, a cab sharing portal exclusive to our college community. Access is gated behind college-verified accounts, so every rider and driver on the platform is a genuine student from the same campus. On top of that trust layer, the application offers:
+We built **IITGN Pool**, a cab sharing portal exclusive to our college community. Access is gated behind college-verified accounts, so every ride creator and passenger on the platform is a genuine student from the same campus. On top of that trust layer, the application offers:
 
 - **College-only verified sign-up and login** so you always know who you are sharing a ride with.
 - **Post and discover rides in real time**, with strict seat limits enforced at the database level so the same seat can never be double-booked.
