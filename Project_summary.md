@@ -338,21 +338,20 @@ The overall technology stack includes:
 - Distributed query routing
 
 ---
-```
-```
+
 # Repository Structure
 
 ```text
 QueryWorks2.0/
 ├── Assignment2/
-│   ├── ModuleA/      # Custom B+ tree DBMS engine (from scratch)
-│   └── ModuleB/      # First version of the ride sharing app
+│   ├── ModuleA/        # Custom B+ tree DBMS engine (from scratch)
+│   └── ModuleB/        # First version of the ride sharing app
 ├── Assignment3/
-│   ├── ModuleA/      # B+ tree engine extended with ACID properties
-│   └── ModuleB/      # ACID-backed app + backend stress testing
-├── Assignment4/      # Final sharded application (horizontal scaling)
-└── README.md         # This file
-└── Project_summary.md         # This file
+│   ├── ModuleA/        # B+ tree engine extended with ACID properties
+│   └── ModuleB/        # ACID-backed app + backend stress testing
+├── Assignment4/        # Final sharded application (horizontal scaling)
+└── README.md           
+└── Project_summary.md  # This file
 ```
 # Conclusion
 
